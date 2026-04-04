@@ -1,0 +1,13 @@
+services:
+  vesto-v2:
+    image: ${IMAGE_REPO}:${IMAGE_TAG}
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${APP_CONTAINER_PORT:-3000}
+    ports:
+      - "${APP_PORT:-43000}:${APP_CONTAINER_PORT:-3000}"
+    volumes:
+      - ../data:/data

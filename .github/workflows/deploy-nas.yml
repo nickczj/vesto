@@ -1,0 +1,135 @@
+name: Deploy to NAS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/vesto-v2
+
+concurrency:
+  group: deploy-nas-main
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+  build_publish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPO }}:sha-${{ github.sha }}
+            ${{ env.IMAGE_REPO }}:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build_publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ secrets.NAS_HOST }}
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.NAS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${{ secrets.NAS_PORT }}" "${{ secrets.NAS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync deployment assets
+        run: |
+          set -euo pipefail
+          NAS_TARGET="${{ secrets.NAS_USER }}@${{ secrets.NAS_HOST }}"
+          NAS_PATH="${{ secrets.NAS_DEPLOY_PATH }}"
+          SSH_ARGS=(-i ~/.ssh/id_ed25519 -p "${{ secrets.NAS_PORT }}" -o StrictHostKeyChecking=yes)
+
+          if [[ "${NAS_PATH}" != /* ]]; then
+            echo "NAS_DEPLOY_PATH must be an absolute path (example: /srv/vesto-v2)." >&2
+            exit 1
+          fi
+
+          ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "mkdir -p '${NAS_PATH}/deploy' '${NAS_PATH}/data'"
+
+          tar -czf - \
+            deploy/docker-compose.nas.yml \
+            deploy/deploy.sh \
+            .env.example \
+            | ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "tar -xzf - -C '${NAS_PATH}'"
+
+          ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "chmod +x '${NAS_PATH}/deploy/deploy.sh'"
+
+      - name: Execute remote deploy
+        env:
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          set -euo pipefail
+          NAS_TARGET="${{ secrets.NAS_USER }}@${{ secrets.NAS_HOST }}"
+          NAS_PATH="${{ secrets.NAS_DEPLOY_PATH }}"
+          SSH_ARGS=(-i ~/.ssh/id_ed25519 -p "${{ secrets.NAS_PORT }}" -o StrictHostKeyChecking=yes)
+
+          GHCR_USERNAME_B64="$(printf '%s' "${GHCR_USERNAME}" | base64 | tr -d '\n')"
+          GHCR_TOKEN_B64="$(printf '%s' "${GHCR_TOKEN}" | base64 | tr -d '\n')"
+          IMAGE_REPO_B64="$(printf '%s' "${IMAGE_REPO}" | base64 | tr -d '\n')"
+          IMAGE_TAG_B64="$(printf '%s' "sha-${{ github.sha }}" | base64 | tr -d '\n')"
+
+          ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "set -euo pipefail; \
+            cd '${NAS_PATH}'; \
+            export GHCR_USERNAME=\$(printf '%s' '${GHCR_USERNAME_B64}' | base64 -d); \
+            export GHCR_TOKEN=\$(printf '%s' '${GHCR_TOKEN_B64}' | base64 -d); \
+            export IMAGE_REPO=\$(printf '%s' '${IMAGE_REPO_B64}' | base64 -d); \
+            export IMAGE_TAG=\$(printf '%s' '${IMAGE_TAG_B64}' | base64 -d); \
+            ./deploy/deploy.sh"

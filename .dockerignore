@@ -1,0 +1,12 @@
+.git
+.github
+.nuxt
+.output
+.wrangler
+dist
+node_modules
+data
+coverage
+playwright-report
+test-results
+npm-debug.log*
