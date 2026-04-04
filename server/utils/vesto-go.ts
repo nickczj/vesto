@@ -1,6 +1,6 @@
 import type { CurrencyCode, FxSnapshot, QuoteSnapshot } from '~~/shared/types/balance-sheet'
 
-const REQUEST_TIMEOUT_MS = 10_000
+const REQUEST_TIMEOUT_MS = 20_000
 
 interface LatestQuoteBatchRequestItem {
   symbol: string

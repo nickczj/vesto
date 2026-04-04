@@ -1,46 +1,58 @@
 <template>
-  <UModal v-model:open="isOpen" :title="modalTitle">
-    <template #body>
-      <form class="form-grid" @submit.prevent="submitForm">
-        <label>
-          <span>Type</span>
-          <select v-model="form.type" class="bs-input">
-            <option value="loan">Loan</option>
-            <option value="credit_card">Credit Card</option>
-            <option value="other">Other</option>
-          </select>
-        </label>
+  <Teleport to="body">
+    <div
+      v-if="isOpen"
+      class="simple-modal-backdrop"
+      @click.self="isOpen = false"
+      @keydown.esc="isOpen = false"
+    >
+      <section class="simple-modal" role="dialog" aria-modal="true" :aria-label="modalTitle">
+        <header class="simple-modal-header">
+          <h3>{{ modalTitle }}</h3>
+          <button type="button" class="mini-button" @click="isOpen = false">Close</button>
+        </header>
 
-        <label>
-          <span>Name</span>
-          <input v-model.trim="form.name" class="bs-input" required>
-        </label>
+        <form class="form-grid" @submit.prevent="submitForm">
+          <label>
+            <span>Type</span>
+            <select v-model="form.type" class="bs-input">
+              <option value="loan">Loan</option>
+              <option value="credit_card">Credit Card</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
 
-        <label>
-          <span>Currency</span>
-          <select v-model="form.currency" class="bs-input">
-            <option value="USD">USD</option>
-            <option value="SGD">SGD</option>
-          </select>
-        </label>
+          <label>
+            <span>Name</span>
+            <input v-model.trim="form.name" class="bs-input" required>
+          </label>
 
-        <label>
-          <span>Outstanding Amount</span>
-          <input v-model.number="form.outstandingAmount" class="bs-input" type="number" step="0.01" min="0.01" required>
-        </label>
+          <label>
+            <span>Currency</span>
+            <select v-model="form.currency" class="bs-input">
+              <option value="USD">USD</option>
+              <option value="SGD">SGD</option>
+            </select>
+          </label>
 
-        <label>
-          <span>Notes</span>
-          <textarea v-model.trim="form.notes" class="bs-input" rows="3" />
-        </label>
+          <label>
+            <span>Outstanding Amount</span>
+            <input v-model.number="form.outstandingAmount" class="bs-input" type="number" step="0.01" min="0.01" required>
+          </label>
 
-        <div class="form-actions">
-          <UButton color="neutral" variant="soft" @click="isOpen = false">Cancel</UButton>
-          <UButton type="submit">Save</UButton>
-        </div>
-      </form>
-    </template>
-  </UModal>
+          <label>
+            <span>Notes</span>
+            <textarea v-model.trim="form.notes" class="bs-input" rows="3" />
+          </label>
+
+          <div class="form-actions">
+            <button type="button" class="mini-button" @click="isOpen = false">Cancel</button>
+            <button type="submit" class="mini-button">Save</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">

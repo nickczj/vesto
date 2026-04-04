@@ -188,14 +188,40 @@ export function useBalanceSheet() {
     ])
   }
 
+  function toErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
+  }
+
+  async function syncAfterMutation() {
+    try {
+      await Promise.all([
+        loadAssets(),
+        loadLiabilities(),
+        refresh('never', { silent: true }),
+      ])
+    }
+    catch (error) {
+      errorMessage.value = `Saved changes, but local snapshot refresh failed: ${toErrorMessage(error)}`
+    }
+
+    void refresh('always', { silent: true }).catch((error) => {
+      errorMessage.value = `Live valuation refresh failed: ${toErrorMessage(error)}`
+    })
+  }
+
   async function createAsset(payload: AssetUpsertPayload) {
     const temp = toTempAssetRow(payload)
     pendingRows.value.unshift(temp)
     isMutating.value = true
+    errorMessage.value = null
 
     try {
       await $fetch('/api/assets', { method: 'POST', body: payload })
-      await refreshAll('always')
+      await syncAfterMutation()
+    }
+    catch (error) {
+      errorMessage.value = toErrorMessage(error)
+      throw error
     }
     finally {
       pendingRows.value = pendingRows.value.filter(row => row.id !== temp.id)
@@ -205,9 +231,14 @@ export function useBalanceSheet() {
 
   async function updateAsset(id: number, payload: Partial<AssetUpsertPayload>) {
     isMutating.value = true
+    errorMessage.value = null
     try {
       await $fetch(`/api/assets/${id}`, { method: 'PATCH', body: payload })
-      await refreshAll('always')
+      await syncAfterMutation()
+    }
+    catch (error) {
+      errorMessage.value = toErrorMessage(error)
+      throw error
     }
     finally {
       isMutating.value = false
@@ -222,15 +253,17 @@ export function useBalanceSheet() {
     }
 
     isMutating.value = true
+    errorMessage.value = null
     try {
       await $fetch(`/api/assets/${id}`, { method: 'DELETE' })
-      await refreshAll('always')
+      await syncAfterMutation()
     }
     catch (error) {
       sheet.value = {
         ...sheet.value,
         rows: existingRows,
       }
+      errorMessage.value = toErrorMessage(error)
       throw error
     }
     finally {
@@ -242,10 +275,15 @@ export function useBalanceSheet() {
     const temp = toTempLiabilityRow(payload)
     pendingRows.value.unshift(temp)
     isMutating.value = true
+    errorMessage.value = null
 
     try {
       await $fetch('/api/liabilities', { method: 'POST', body: payload })
-      await refreshAll('always')
+      await syncAfterMutation()
+    }
+    catch (error) {
+      errorMessage.value = toErrorMessage(error)
+      throw error
     }
     finally {
       pendingRows.value = pendingRows.value.filter(row => row.id !== temp.id)
@@ -255,9 +293,14 @@ export function useBalanceSheet() {
 
   async function updateLiability(id: number, payload: Partial<LiabilityUpsertPayload>) {
     isMutating.value = true
+    errorMessage.value = null
     try {
       await $fetch(`/api/liabilities/${id}`, { method: 'PATCH', body: payload })
-      await refreshAll('always')
+      await syncAfterMutation()
+    }
+    catch (error) {
+      errorMessage.value = toErrorMessage(error)
+      throw error
     }
     finally {
       isMutating.value = false
@@ -272,15 +315,17 @@ export function useBalanceSheet() {
     }
 
     isMutating.value = true
+    errorMessage.value = null
     try {
       await $fetch(`/api/liabilities/${id}`, { method: 'DELETE' })
-      await refreshAll('always')
+      await syncAfterMutation()
     }
     catch (error) {
       sheet.value = {
         ...sheet.value,
         rows: existingRows,
       }
+      errorMessage.value = toErrorMessage(error)
       throw error
     }
     finally {

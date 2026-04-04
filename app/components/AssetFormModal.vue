@@ -1,89 +1,101 @@
 <template>
-  <UModal v-model:open="isOpen" :title="modalTitle">
-    <template #body>
-      <form class="form-grid" @submit.prevent="submitForm">
-        <label>
-          <span>Kind</span>
-          <select v-model="form.kind" class="bs-input">
-            <option value="investment">Investment</option>
-            <option value="cpf">CPF</option>
-            <option value="cash_savings">Cash/Savings</option>
-            <option value="manual">Manual</option>
-          </select>
-        </label>
+  <Teleport to="body">
+    <div
+      v-if="isOpen"
+      class="simple-modal-backdrop"
+      @click.self="isOpen = false"
+      @keydown.esc="isOpen = false"
+    >
+      <section class="simple-modal" role="dialog" aria-modal="true" :aria-label="modalTitle">
+        <header class="simple-modal-header">
+          <h3>{{ modalTitle }}</h3>
+          <button type="button" class="mini-button" @click="isOpen = false">Close</button>
+        </header>
 
-        <label>
-          <span>Name</span>
-          <input v-model.trim="form.name" class="bs-input" required>
-        </label>
-
-        <label>
-          <span>Currency</span>
-          <select v-model="form.currency" class="bs-input">
-            <option value="USD">USD</option>
-            <option value="SGD">SGD</option>
-          </select>
-        </label>
-
-        <template v-if="form.kind === 'investment'">
+        <form class="form-grid" @submit.prevent="submitForm">
           <label>
-            <span>Symbol</span>
-            <input v-model.trim="form.symbol" class="bs-input" placeholder="AAPL or VWRA.L" required>
-          </label>
-
-          <label>
-            <span>Market</span>
-            <input v-model.trim="form.market" class="bs-input" placeholder="NMS, LSE, SES">
-          </label>
-
-          <label>
-            <span>Quantity</span>
-            <input v-model.number="form.quantity" class="bs-input" type="number" step="0.0001" min="0.0001" required>
-          </label>
-
-          <label>
-            <span>Valuation Mode</span>
-            <select v-model="form.valuationMode" class="bs-input">
-              <option value="live_preferred">Live Preferred</option>
-              <option value="manual_only">Manual Only</option>
+            <span>Kind</span>
+            <select v-model="form.kind" class="bs-input">
+              <option value="investment">Investment</option>
+              <option value="cpf">CPF</option>
+              <option value="cash_savings">Cash/Savings</option>
+              <option value="manual">Manual</option>
             </select>
           </label>
 
           <label>
-            <span>Manual Unit Price</span>
-            <input v-model.number="form.manualUnitPrice" class="bs-input" type="number" step="0.0001" min="0">
-          </label>
-        </template>
-
-        <template v-else>
-          <label v-if="form.kind === 'cpf'">
-            <span>CPF Bucket</span>
-            <select v-model="form.cpfBucket" class="bs-input">
-              <option value="OA">OA</option>
-              <option value="SA">SA</option>
-              <option value="MA">MA</option>
-              <option value="RA">RA</option>
-            </select>
+            <span>Name</span>
+            <input v-model.trim="form.name" class="bs-input" required>
           </label>
 
           <label>
-            <span>Amount</span>
-            <input v-model.number="form.amount" class="bs-input" type="number" step="0.01" min="0" required>
+            <span>Currency</span>
+            <select v-model="form.currency" class="bs-input">
+              <option value="USD">USD</option>
+              <option value="SGD">SGD</option>
+            </select>
           </label>
-        </template>
 
-        <label>
-          <span>Notes</span>
-          <textarea v-model.trim="form.notes" class="bs-input" rows="3" />
-        </label>
+          <template v-if="form.kind === 'investment'">
+            <label>
+              <span>Symbol</span>
+              <input v-model.trim="form.symbol" class="bs-input" placeholder="AAPL or VWRA.L" required>
+            </label>
 
-        <div class="form-actions">
-          <UButton color="neutral" variant="soft" @click="isOpen = false">Cancel</UButton>
-          <UButton type="submit">Save</UButton>
-        </div>
-      </form>
-    </template>
-  </UModal>
+            <label>
+              <span>Market</span>
+              <input v-model.trim="form.market" class="bs-input" placeholder="NMS, LSE, SES">
+            </label>
+
+            <label>
+              <span>Quantity</span>
+              <input v-model.number="form.quantity" class="bs-input" type="number" step="0.0001" min="0.0001" required>
+            </label>
+
+            <label>
+              <span>Valuation Mode</span>
+              <select v-model="form.valuationMode" class="bs-input">
+                <option value="live_preferred">Live Preferred</option>
+                <option value="manual_only">Manual Only</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Manual Unit Price</span>
+              <input v-model.number="form.manualUnitPrice" class="bs-input" type="number" step="0.0001" min="0">
+            </label>
+          </template>
+
+          <template v-else>
+            <label v-if="form.kind === 'cpf'">
+              <span>CPF Bucket</span>
+              <select v-model="form.cpfBucket" class="bs-input">
+                <option value="OA">OA</option>
+                <option value="SA">SA</option>
+                <option value="MA">MA</option>
+                <option value="RA">RA</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Amount</span>
+              <input v-model.number="form.amount" class="bs-input" type="number" step="0.01" min="0" required>
+            </label>
+          </template>
+
+          <label>
+            <span>Notes</span>
+            <textarea v-model.trim="form.notes" class="bs-input" rows="3" />
+          </label>
+
+          <div class="form-actions">
+            <button type="button" class="mini-button" @click="isOpen = false">Cancel</button>
+            <button type="submit" class="mini-button">Save</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
