@@ -11,6 +11,7 @@ APP_SERVICE_NAME="${APP_SERVICE_NAME:-vesto-v2}"
 APP_HEALTH_HOST="${APP_HEALTH_HOST:-127.0.0.1}"
 APP_HEALTH_PATH="${APP_HEALTH_PATH:-/api/healthz}"
 APP_HEALTH_TIMEOUT_SECONDS="${APP_HEALTH_TIMEOUT_SECONDS:-120}"
+SHARED_DOCKER_NETWORK="${SHARED_DOCKER_NETWORK:-vesto-shared}"
 
 required_env_vars=(
   GHCR_USERNAME
@@ -57,6 +58,18 @@ COMPOSE_CMD=(
   --env-file "${ENV_FILE}"
   -f "${COMPOSE_FILE}"
 )
+
+ensure_shared_network() {
+  if docker network inspect "${SHARED_DOCKER_NETWORK}" >/dev/null 2>&1; then
+    echo "Shared network ${SHARED_DOCKER_NETWORK} already exists."
+    return 0
+  fi
+
+  echo "Creating shared network ${SHARED_DOCKER_NETWORK}..."
+  docker network create "${SHARED_DOCKER_NETWORK}" >/dev/null
+}
+
+ensure_shared_network
 
 previous_tag=""
 previous_container_id="$("${COMPOSE_CMD[@]}" ps -q "${APP_SERVICE_NAME}" || true)"

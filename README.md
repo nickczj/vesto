@@ -94,9 +94,10 @@ This repo includes an automated deploy workflow at `.github/workflows/deploy-nas
 Important runtime env notes:
 - `APP_PORT` is host/NAS port exposed to the reverse proxy (for example `43000`).
 - `APP_CONTAINER_PORT` is the container port Docker maps to (default `3000`).
+- `SHARED_DOCKER_NETWORK` should match `vesto-go` (default `vesto-shared`) for container-to-container DNS.
 - `HOST` should be `0.0.0.0` and `PORT` should match `APP_CONTAINER_PORT`.
 - `NUXT_DATABASE_PATH` should be `/data/vesto-v2.db` for persistent SQLite storage.
-- `NUXT_VESTO_GO_BASE_URL` should point to your private/proxied `vesto-go` URL.
+- `NUXT_VESTO_GO_BASE_URL` can use shared Docker DNS (`http://vesto-api:8080`) when both stacks are on `SHARED_DOCKER_NETWORK`.
 
 ### Deploy behavior
 - Pulls and starts `ghcr.io/<owner>/vesto-v2:sha-<commit>`.

@@ -11,3 +11,10 @@ services:
       - "${APP_PORT:-43000}:${APP_CONTAINER_PORT:-3000}"
     volumes:
       - ../data:/data
+    networks:
+      - vesto_shared
+
+networks:
+  vesto_shared:
+    external: true
+    name: ${SHARED_DOCKER_NETWORK:-vesto-shared}
