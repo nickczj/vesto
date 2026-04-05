@@ -194,9 +194,21 @@ function formatBoughtPrice(row: BalanceSheetRow): string {
   return formatCurrency(row.boughtUnitPrice, row.nativeCurrency)
 }
 
+function formatCurrentPrice(row: BalanceSheetRow): string {
+  if (row.currentUnitPrice === null) return '-'
+  return formatCurrency(row.currentUnitPrice, row.nativeCurrency)
+}
+
 function formatPnl(row: BalanceSheetRow): string {
   if (row.pnlSgd === null) return '-'
   return formatSignedCurrency(row.pnlSgd, 'SGD')
+}
+
+function pnlToneClass(row: BalanceSheetRow): string {
+  if (row.pnlSgd === null) return 'pnl-flat'
+  if (row.pnlSgd > 0) return 'pnl-profit'
+  if (row.pnlSgd < 0) return 'pnl-loss'
+  return 'pnl-flat'
 }
 
 const columnHelper = createColumnHelper<BalanceSheetRow>()
@@ -220,9 +232,15 @@ const columns = [
   }),
   columnHelper.display({
     id: 'bought',
-    header: 'Bought Price',
+    header: 'Bought',
     cell: ({ row }) => formatBoughtPrice(row.original),
     sortingFn: sectionFirstNullableSort(row => row.boughtUnitPrice),
+  }),
+  columnHelper.display({
+    id: 'current',
+    header: 'Current',
+    cell: ({ row }) => formatCurrentPrice(row.original),
+    sortingFn: sectionFirstNullableSort(row => row.currentUnitPrice),
   }),
   columnHelper.accessor(row => signedAmount(row, row.usdAmount), {
     id: 'usd',
@@ -239,7 +257,14 @@ const columns = [
   columnHelper.accessor(row => row.pnlSgd, {
     id: 'pnl',
     header: sortableHeader('P&L (SGD)'),
-    cell: ({ row }) => formatPnl(row.original),
+    cell: ({ row }) =>
+      h(
+        'span',
+        {
+          class: ['pnl-value', pnlToneClass(row.original)],
+        },
+        formatPnl(row.original),
+      ),
     sortingFn: sectionFirstNullableSort(row => row.pnlSgd),
   }),
   columnHelper.display({

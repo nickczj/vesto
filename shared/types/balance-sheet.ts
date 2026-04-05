@@ -83,6 +83,7 @@ export interface BalanceSheetRow {
   nativeCurrency: CurrencyCode
   nativeAmount: number
   boughtUnitPrice: number | null
+  currentUnitPrice: number | null
   costBasisNative: number | null
   costBasisUsd: number | null
   costBasisSgd: number | null

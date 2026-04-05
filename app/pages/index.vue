@@ -1,18 +1,23 @@
 <template>
   <main class="page-shell">
     <section class="page-header">
-      <div>
+      <div class="header-copy">
         <h1>Vesto v2 Balance Sheet</h1>
-        <p>Track assets, CPF, and liabilities in one table with USD/SGD net worth.</p>
-        <p class="muted">Auto-refresh runs every 10 minutes while the tab is visible.</p>
-        <p class="muted">Last snapshot: {{ formatTimestamp(sheet.generatedAt) }}</p>
+        <p class="header-description">Track assets, CPF, and liabilities in one table with USD/SGD net worth.</p>
+        <p class="header-meta muted">
+          <span>Auto-refresh runs every 10 minutes while the tab is visible.</span>
+          <span aria-hidden="true">•</span>
+          <span>Last snapshot: {{ formatTimestamp(sheet.generatedAt) }}</span>
+        </p>
       </div>
 
       <div class="header-actions">
-        <UButton color="neutral" variant="soft" :loading="isLoading" @click="onRefresh">Refresh Now</UButton>
-        <UButton color="neutral" variant="soft" :loading="isMutating" @click="onImport">Import v1 Data</UButton>
-        <UButton @click="openCreateAsset">Add Asset</UButton>
-        <UButton color="warning" @click="openCreateLiability">Add Liability</UButton>
+        <UButton size="xs" color="neutral" variant="soft" @click="onToggleTheme">Toggle Theme</UButton>
+        <UButton size="xs" color="neutral" variant="soft" :loading="isExporting" @click="onExportExcel">Export Excel</UButton>
+        <UButton size="xs" color="neutral" variant="soft" :loading="isLoading" @click="onRefresh">Refresh Now</UButton>
+        <UButton size="xs" color="neutral" variant="soft" :loading="isMutating" @click="onImport">Import v1 Data</UButton>
+        <UButton size="xs" @click="openCreateAsset">Add Asset</UButton>
+        <UButton size="xs" color="warning" @click="openCreateLiability">Add Liability</UButton>
       </div>
     </section>
 
@@ -83,6 +88,7 @@
 
 <script setup lang="ts">
 import type { AssetEntry, LiabilityEntry } from '~~/shared/types/balance-sheet'
+import { exportBalanceSheetToExcel } from '~/utils/excel-export'
 import { formatCurrency, formatTimestamp } from '~/utils/formatters'
 
 const {
@@ -102,11 +108,13 @@ const {
   removeLiability,
   importFromV1,
 } = useBalanceSheet()
+const { toggleTheme } = useThemeMode()
 
 const assetModalOpen = ref(false)
 const liabilityModalOpen = ref(false)
 const editingAssetId = ref<number | null>(null)
 const editingLiabilityId = ref<number | null>(null)
+const isExporting = ref(false)
 
 const activeAsset = computed<AssetEntry | null>(() => {
   if (!editingAssetId.value) return null
@@ -195,5 +203,25 @@ async function onRefresh() {
 async function onImport() {
   if (!window.confirm('Import data from legacy v1 SQLite? This operation is idempotent.')) return
   await importFromV1()
+}
+
+function onToggleTheme() {
+  toggleTheme()
+}
+
+async function onExportExcel() {
+  if (!import.meta.client) return
+
+  isExporting.value = true
+  try {
+    await exportBalanceSheetToExcel(sheet.value)
+  }
+  catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    errorMessage.value = `Excel export failed: ${message}`
+  }
+  finally {
+    isExporting.value = false
+  }
 }
 </script>

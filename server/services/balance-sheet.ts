@@ -199,6 +199,7 @@ function buildAssetRow(
   let source: BalanceSheetRow['source'] = 'book'
   let asOf: string | null = null
   let boughtUnitPrice: number | null = null
+  let currentUnitPrice: number | null = null
   let costBasisNative: number | null = null
   let costBasisUsd: number | null = null
   let costBasisSgd: number | null = null
@@ -215,25 +216,30 @@ function buildAssetRow(
     if (asset.valuationMode === 'manual_only') {
       if (asset.manualUnitPrice !== null && asset.manualUnitPrice !== undefined) {
         nativeAmount = quantity * asset.manualUnitPrice
+        currentUnitPrice = asset.manualUnitPrice
       }
       else {
         nativeAmount = asset.amount
+        currentUnitPrice = quantity > 0 ? roundMoney(asset.amount / quantity) : null
       }
       source = 'manual'
     }
     else if (quote) {
       nativeCurrency = quote.currency
       nativeAmount = quantity * quote.price
+      currentUnitPrice = roundMoney(quote.price)
       source = quote.isStale ? 'stale' : 'live'
       asOf = quote.asOf
     }
     else if (asset.manualUnitPrice !== null && asset.manualUnitPrice !== undefined) {
       nativeAmount = quantity * asset.manualUnitPrice
+      currentUnitPrice = asset.manualUnitPrice
       source = 'manual'
       warnings.push(`No live quote for ${asset.symbol}; used manual unit price.`)
     }
     else {
       nativeAmount = asset.amount
+      currentUnitPrice = quantity > 0 ? roundMoney(asset.amount / quantity) : null
       source = 'book'
       warnings.push(`No live quote or manual fallback for ${asset.symbol}; used stored amount.`)
     }
@@ -268,6 +274,7 @@ function buildAssetRow(
     nativeCurrency,
     nativeAmount: roundMoney(nativeAmount),
     boughtUnitPrice,
+    currentUnitPrice,
     costBasisNative,
     costBasisUsd,
     costBasisSgd,
@@ -301,6 +308,7 @@ function buildLiabilityRow(
     nativeCurrency: liability.currency,
     nativeAmount: roundMoney(liability.outstandingAmount),
     boughtUnitPrice: null,
+    currentUnitPrice: null,
     costBasisNative: null,
     costBasisUsd: null,
     costBasisSgd: null,
