@@ -80,7 +80,7 @@
       </tfoot>
     </table>
 
-    <div v-if="loading" class="overlay">Refreshing...</div>
+    <div v-if="showBlockingOverlay" class="overlay">Refreshing...</div>
   </div>
 </template>
 
@@ -327,6 +327,7 @@ const table = useVueTable({
 
 const renderedRows = computed(() => table.getRowModel().rows)
 const visibleColumnCount = computed(() => table.getVisibleLeafColumns().length)
+const showBlockingOverlay = computed(() => props.loading && props.rows.length === 0)
 
 function isSectionStart(index: number): boolean {
   if (index === 0) return true

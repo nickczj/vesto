@@ -375,8 +375,26 @@ export function useBalanceSheet() {
     void refresh('stale', { silent: true })
   }
 
+  function refreshLiveInBackground() {
+    void refresh('always', { silent: true }).catch((error) => {
+      errorMessage.value = `Live valuation refresh failed: ${toErrorMessage(error)}`
+    })
+  }
+
+  async function hydrateInitialSnapshot() {
+    try {
+      await refreshAll('never')
+    }
+    catch (error) {
+      errorMessage.value = toErrorMessage(error)
+    }
+    finally {
+      refreshLiveInBackground()
+    }
+  }
+
   onMounted(() => {
-    void refreshAll('always')
+    void hydrateInitialSnapshot()
     startPolling()
     document.addEventListener('visibilitychange', handleVisibilityChange)
   })
