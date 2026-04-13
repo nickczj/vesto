@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import type { CurrencyCode, FxSnapshot, QuoteSnapshot } from '~~/shared/types/balance-sheet'
 
 const REQUEST_TIMEOUT_MS = 20_000
@@ -64,10 +65,30 @@ export function buildQuoteCacheKey(symbol: string, market?: string | null): stri
   return `${normalizedSymbol}::${normalizedMarket}`
 }
 
+export function normalizeVestoGoBaseUrl(baseUrl: string, isDockerRuntime: boolean): string {
+  const trimmed = baseUrl.trim()
+  if (!trimmed || isDockerRuntime) {
+    return trimmed
+  }
+
+  try {
+    const url = new URL(trimmed)
+    if (url.hostname === 'vesto-api') {
+      url.hostname = '127.0.0.1'
+      return url.toString().replace(/\/$/, '')
+    }
+  }
+  catch {
+    return trimmed
+  }
+
+  return trimmed
+}
+
 function getBaseUrl(): string {
   const config = useRuntimeConfig()
-  const baseUrl = String(config.vestoGoBaseUrl || '').trim()
-  return baseUrl || 'http://localhost:8080'
+  const baseUrl = String(config.vestoGoBaseUrl || '').trim() || 'http://localhost:8080'
+  return normalizeVestoGoBaseUrl(baseUrl, existsSync('/.dockerenv'))
 }
 
 async function withRetry<T>(work: () => Promise<T>, retries = 1): Promise<T> {
