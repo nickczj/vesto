@@ -26,29 +26,75 @@ function fileTimestamp(value: string): string {
     .replace(/:/g, '')
 }
 
-function toDetailRows(rows: BalanceSheetRow[]) {
-  return rows.map(row => ({
+type DetailExportRow = {
+  Section: string
+  Name: string
+  Category: string
+  Type: string
+  Source: string
+  AsOf: string
+  NativeAmount: number | ''
+  USDAmount: number | ''
+  SGDAmount: number | ''
+  Bought: number | ''
+  Current: number | ''
+  CostBasisNative: number | ''
+  PnlSGD: number | ''
+  Symbol: string
+  Market: string
+  Notes: string
+}
+
+function excelNumber(value: number | null): number | '' {
+  return value ?? ''
+}
+
+function toDetailRow(row: BalanceSheetRow): DetailExportRow {
+  return {
     Section: SECTION_LABELS[row.section],
     Name: row.name,
     Category: row.category,
     Type: row.entityType,
     Source: row.source,
     AsOf: row.asOf || '',
-    NativeCurrency: row.nativeCurrency,
     NativeAmount: signedAmount(row, row.nativeAmount),
     USDAmount: signedAmount(row, row.usdAmount),
     SGDAmount: signedAmount(row, row.sgdAmount),
-    Bought: row.boughtUnitPrice,
-    Current: row.currentUnitPrice,
-    CostBasisNative: row.costBasisNative,
-    PnlSGD: row.pnlSgd,
+    Bought: excelNumber(row.boughtUnitPrice),
+    Current: excelNumber(row.currentUnitPrice),
+    CostBasisNative: excelNumber(row.costBasisNative),
+    PnlSGD: excelNumber(row.pnlSgd),
     Symbol: row.symbol || '',
     Market: row.market || '',
     Notes: row.notes || '',
-  }))
+  }
 }
 
-function toSummaryRows(sheet: BalanceSheetResponse): Array<Array<string | number>> {
+export function toDetailRows(sheet: BalanceSheetResponse): DetailExportRow[] {
+  return [
+    ...sheet.rows.map(toDetailRow),
+    {
+      Section: 'Summary',
+      Name: 'Net Worth',
+      Category: '',
+      Type: '',
+      Source: '',
+      AsOf: sheet.generatedAt,
+      NativeAmount: '',
+      USDAmount: sheet.totals.netWorth.usd,
+      SGDAmount: sheet.totals.netWorth.sgd,
+      Bought: '',
+      Current: '',
+      CostBasisNative: '',
+      PnlSGD: '',
+      Symbol: '',
+      Market: '',
+      Notes: 'Derived as total assets - total liabilities',
+    },
+  ]
+}
+
+export function toSummaryRows(sheet: BalanceSheetResponse): Array<Array<string | number>> {
   const rows: Array<Array<string | number>> = [
     ['GeneratedAt', sheet.generatedAt],
     ['RefreshMode', sheet.refreshMode],
@@ -96,8 +142,8 @@ export async function exportBalanceSheetToExcel(sheet: BalanceSheetResponse) {
 
   const workbook = XLSX.utils.book_new()
 
-  const detailSheet = XLSX.utils.json_to_sheet(toDetailRows(sheet.rows))
-  withColumns(detailSheet as Record<string, unknown>, [18, 28, 20, 10, 10, 22, 14, 15, 15, 15, 14, 14, 16, 12, 12, 10, 32])
+  const detailSheet = XLSX.utils.json_to_sheet(toDetailRows(sheet))
+  withColumns(detailSheet as Record<string, unknown>, [18, 28, 20, 10, 10, 22, 15, 15, 15, 14, 14, 16, 12, 12, 10, 32])
   XLSX.utils.book_append_sheet(workbook, detailSheet, 'Rows')
 
   const summarySheet = XLSX.utils.aoa_to_sheet(toSummaryRows(sheet))
