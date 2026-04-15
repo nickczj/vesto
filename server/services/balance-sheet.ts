@@ -7,12 +7,14 @@ import {
   type FxSnapshot,
   type QuoteSnapshot,
   type RefreshMode,
+  LIVE_REFRESH_INTERVAL_MS,
 } from '~~/shared/types/balance-sheet'
-import { listAssets, listLiabilities } from '~~/server/services/repository'
+import { listAssets, listLiabilities, updateAssetMarket } from '~~/server/services/repository'
 import {
   buildQuoteCacheKey,
   fetchQuoteBatch,
   fetchUsdToSgdFx,
+  type QuoteBatchFetchResult,
   type QuoteLookupItem,
 } from '~~/server/utils/vesto-go'
 import {
@@ -22,7 +24,7 @@ import {
   roundRate,
 } from '~~/server/services/valuation'
 
-const CACHE_TTL_MS = 45_000
+const CACHE_TTL_MS = LIVE_REFRESH_INTERVAL_MS
 
 type QuoteCacheEntry = {
   snapshot: QuoteSnapshot
@@ -36,6 +38,8 @@ type FxCacheEntry = {
 
 const quoteCache = new Map<string, QuoteCacheEntry>()
 let fxCache: FxCacheEntry | null = null
+let inflightFxSnapshot: Promise<FxSnapshot> | null = null
+const inflightQuoteFetches = new Map<string, Promise<QuoteBatchFetchResult>>()
 
 function isFresh(cachedAt: number, now = Date.now()): boolean {
   return now - cachedAt <= CACHE_TTL_MS
@@ -61,6 +65,69 @@ function buildFallbackFxSnapshot(): FxSnapshot {
   }
 }
 
+function resolvedQuoteCacheKey(snapshot: QuoteSnapshot): string {
+  return buildQuoteCacheKey(snapshot.symbol, snapshot.market)
+}
+
+function rememberQuoteSnapshot(
+  cacheKey: string,
+  snapshot: QuoteSnapshot,
+  byKey?: Map<string, QuoteSnapshot>,
+  cachedAt?: number,
+) {
+  if (byKey) {
+    byKey.set(cacheKey, snapshot)
+  }
+
+  if (typeof cachedAt === 'number') {
+    quoteCache.set(cacheKey, {
+      snapshot,
+      cachedAt,
+    })
+  }
+
+  const resolvedKey = resolvedQuoteCacheKey(snapshot)
+  if (resolvedKey === cacheKey) {
+    return
+  }
+
+  if (byKey) {
+    byKey.set(resolvedKey, snapshot)
+  }
+
+  if (typeof cachedAt === 'number') {
+    quoteCache.set(resolvedKey, {
+      snapshot,
+      cachedAt,
+    })
+  }
+}
+
+function backfillResolvedAssetMarkets(
+  assets: AssetEntry[],
+  quoteByKey: Map<string, QuoteSnapshot>,
+  warnings: string[],
+) {
+  for (const asset of assets) {
+    if (asset.kind !== 'investment' || !asset.symbol) continue
+
+    const quote = quoteByKey.get(buildQuoteCacheKey(asset.symbol, asset.market))
+    const resolvedMarket = quote?.market?.trim().toUpperCase()
+    const currentMarket = asset.market?.trim().toUpperCase() || null
+    if (!resolvedMarket || resolvedMarket === currentMarket) continue
+
+    try {
+      asset.market = resolvedMarket
+      updateAssetMarket(asset.id, resolvedMarket)
+    }
+    catch (error) {
+      warnings.push(
+        `Failed to persist resolved market for ${asset.symbol}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
+}
+
 async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): Promise<FxSnapshot> {
   const now = Date.now()
 
@@ -76,19 +143,27 @@ async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): 
   }
 
   try {
-    const freshSnapshot = await fetchUsdToSgdFx()
-    const normalized: FxSnapshot = {
-      ...freshSnapshot,
-      usdToSgd: roundRate(freshSnapshot.usdToSgd),
-      sgdToUsd: roundRate(freshSnapshot.sgdToUsd),
+    if (!inflightFxSnapshot) {
+      inflightFxSnapshot = (async () => {
+        const freshSnapshot = await fetchUsdToSgdFx()
+        const normalized: FxSnapshot = {
+          ...freshSnapshot,
+          usdToSgd: roundRate(freshSnapshot.usdToSgd),
+          sgdToUsd: roundRate(freshSnapshot.sgdToUsd),
+        }
+
+        fxCache = {
+          snapshot: normalized,
+          cachedAt: now,
+        }
+
+        return normalized
+      })().finally(() => {
+        inflightFxSnapshot = null
+      })
     }
 
-    fxCache = {
-      snapshot: normalized,
-      cachedAt: now,
-    }
-
-    return normalized
+    return await inflightFxSnapshot
   }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -139,7 +214,7 @@ async function resolveQuoteSnapshots(
     const cached = quoteCache.get(key)
 
     if (cached) {
-      byKey.set(key, cached.snapshot)
+      rememberQuoteSnapshot(key, cached.snapshot, byKey, cached.cachedAt)
     }
 
     if (refreshMode === 'never') {
@@ -154,6 +229,8 @@ async function resolveQuoteSnapshots(
   }
 
   if (fetchItems.length === 0) {
+    backfillResolvedAssetMarkets(assets, byKey, warnings)
+
     return {
       byKey,
       requested: lookupItems.length,
@@ -161,14 +238,23 @@ async function resolveQuoteSnapshots(
   }
 
   try {
-    const fetched = await fetchQuoteBatch(fetchItems)
+    const inflightKey = fetchItems
+      .map(item => buildQuoteCacheKey(item.symbol, item.market))
+      .sort()
+      .join('|')
+
+    let inflightFetch = inflightQuoteFetches.get(inflightKey)
+    if (!inflightFetch) {
+      inflightFetch = fetchQuoteBatch(fetchItems).finally(() => {
+        inflightQuoteFetches.delete(inflightKey)
+      })
+      inflightQuoteFetches.set(inflightKey, inflightFetch)
+    }
+
+    const fetched = await inflightFetch
 
     for (const [key, snapshot] of fetched.byKey.entries()) {
-      byKey.set(key, snapshot)
-      quoteCache.set(key, {
-        snapshot,
-        cachedAt: now,
-      })
+      rememberQuoteSnapshot(key, snapshot, byKey, now)
     }
 
     if (fetched.errors.length > 0) {
@@ -179,6 +265,8 @@ async function resolveQuoteSnapshots(
     const message = error instanceof Error ? error.message : String(error)
     warnings.push(`Quote batch fetch failed (${message}); using cached/manual fallbacks.`)
   }
+
+  backfillResolvedAssetMarkets(assets, byKey, warnings)
 
   return {
     byKey,
@@ -206,6 +294,7 @@ function buildAssetRow(
   let pnlNative: number | null = null
   let pnlUsd: number | null = null
   let pnlSgd: number | null = null
+  let resolvedMarket = asset.market
 
   if (asset.kind === 'investment') {
     const quantity = asset.quantity || 0
@@ -230,6 +319,7 @@ function buildAssetRow(
       currentUnitPrice = roundMoney(quote.price)
       source = quote.isStale ? 'stale' : 'live'
       asOf = quote.asOf
+      resolvedMarket = quote.market ?? asset.market
     }
     else if (asset.manualUnitPrice !== null && asset.manualUnitPrice !== undefined) {
       nativeAmount = quantity * asset.manualUnitPrice
@@ -286,7 +376,7 @@ function buildAssetRow(
     source,
     asOf,
     symbol: asset.symbol,
-    market: asset.market,
+    market: resolvedMarket,
     notes: asset.notes,
     isLiability: false,
   }

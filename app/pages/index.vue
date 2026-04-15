@@ -5,7 +5,7 @@
         <h1>Vesto v2 Balance Sheet</h1>
         <p class="header-description">Track assets, CPF, and liabilities in one table with USD/SGD net worth.</p>
         <p class="header-meta muted">
-          <span>Auto-refresh runs every 10 minutes while the tab is visible.</span>
+          <span>Auto-refresh runs every 45 seconds while the tab is visible.</span>
           <span aria-hidden="true">•</span>
           <span>Last snapshot: {{ formatTimestamp(sheet.generatedAt) }}</span>
         </p>

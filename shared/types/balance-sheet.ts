@@ -19,6 +19,8 @@ export type BalanceSection = (typeof BALANCE_SECTIONS)[number]
 export const REFRESH_MODES = ['never', 'stale', 'always'] as const
 export type RefreshMode = (typeof REFRESH_MODES)[number]
 
+export const LIVE_REFRESH_INTERVAL_MS = 45_000
+
 export type ValuationSource = 'live' | 'manual' | 'stale' | 'book'
 
 export interface AssetEntry {

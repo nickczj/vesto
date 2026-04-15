@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs'
 import type { CurrencyCode, FxSnapshot, QuoteSnapshot } from '~~/shared/types/balance-sheet'
 
-const REQUEST_TIMEOUT_MS = 20_000
+const FX_REQUEST_TIMEOUT_MS = 5_000
+const QUOTE_BATCH_REQUEST_TIMEOUT_MS = 8_000
 
 interface LatestQuoteBatchRequestItem {
   symbol: string
@@ -91,25 +92,6 @@ function getBaseUrl(): string {
   return normalizeVestoGoBaseUrl(baseUrl, existsSync('/.dockerenv'))
 }
 
-async function withRetry<T>(work: () => Promise<T>, retries = 1): Promise<T> {
-  let lastError: unknown = null
-
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
-    try {
-      return await work()
-    }
-    catch (error) {
-      lastError = error
-      if (attempt === retries) {
-        throw error
-      }
-      await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)))
-    }
-  }
-
-  throw lastError
-}
-
 export async function fetchQuoteBatch(items: QuoteLookupItem[]): Promise<QuoteBatchFetchResult> {
   const normalizedItems = items
     .map(item => ({
@@ -130,15 +112,13 @@ export async function fetchQuoteBatch(items: QuoteLookupItem[]): Promise<QuoteBa
     items: normalizedItems,
   }
 
-  const response = await withRetry(async () => {
-    return await $fetch<LatestQuoteBatchResponse>('/v1/quotes/latest/batch', {
-      baseURL: getBaseUrl(),
-      method: 'POST',
-      body,
-      retry: 0,
-      timeout: REQUEST_TIMEOUT_MS,
-    })
-  }, 1)
+  const response = await $fetch<LatestQuoteBatchResponse>('/v1/quotes/latest/batch', {
+    baseURL: getBaseUrl(),
+    method: 'POST',
+    body,
+    retry: 0,
+    timeout: QUOTE_BATCH_REQUEST_TIMEOUT_MS,
+  })
 
   const byKey = new Map<string, QuoteSnapshot>()
   const errors: string[] = []
@@ -171,17 +151,15 @@ export async function fetchQuoteBatch(items: QuoteLookupItem[]): Promise<QuoteBa
 }
 
 export async function fetchUsdToSgdFx(): Promise<FxSnapshot> {
-  const payload = await withRetry(async () => {
-    return await $fetch<FxRateResponse>('/api/market/fx', {
-      baseURL: getBaseUrl(),
-      query: {
-        base: 'USD',
-        quote: 'SGD',
-      },
-      retry: 0,
-      timeout: REQUEST_TIMEOUT_MS,
-    })
-  }, 1)
+  const payload = await $fetch<FxRateResponse>('/api/market/fx', {
+    baseURL: getBaseUrl(),
+    query: {
+      base: 'USD',
+      quote: 'SGD',
+    },
+    retry: 0,
+    timeout: FX_REQUEST_TIMEOUT_MS,
+  })
 
   const usdToSgd = Number(payload.rate)
   if (!Number.isFinite(usdToSgd) || usdToSgd <= 0) {

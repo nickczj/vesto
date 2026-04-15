@@ -151,6 +151,24 @@ export function updateAsset(id: number, input: AssetWriteInput): AssetEntry {
   return toAssetDomain(row)
 }
 
+export function updateAssetMarket(id: number, market: string): AssetEntry {
+  const db = useDb()
+  const now = new Date().toISOString()
+  const normalizedMarket = normalizeOptionalText(market)?.toUpperCase()
+
+  db.update(assetEntries).set({
+    market: normalizedMarket,
+    updatedAt: now,
+  }).where(eq(assetEntries.id, id)).run()
+
+  const row = db.select().from(assetEntries).where(eq(assetEntries.id, id)).get()
+  if (!row) {
+    throw createError({ statusCode: 404, message: 'asset not found' })
+  }
+
+  return toAssetDomain(row)
+}
+
 export function deleteAsset(id: number): void {
   const db = useDb()
   db.delete(assetEntries).where(eq(assetEntries.id, id)).run()

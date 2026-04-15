@@ -1,3 +1,4 @@
+import { LIVE_REFRESH_INTERVAL_MS } from '~~/shared/types/balance-sheet'
 import type {
   AssetEntry,
   BalanceSheetResponse,
@@ -364,13 +365,13 @@ export function useBalanceSheet() {
     pollingTimer = setInterval(() => {
       if (document.hidden) return
       void refresh('stale', { silent: true })
-    }, 600_000)
+    }, LIVE_REFRESH_INTERVAL_MS)
   }
 
   function handleVisibilityChange() {
     if (document.hidden) return
 
-    const shouldRefresh = Date.now() - lastSuccessfulRefreshAt.value > 600_000
+    const shouldRefresh = Date.now() - lastSuccessfulRefreshAt.value > LIVE_REFRESH_INTERVAL_MS
     if (!shouldRefresh) return
     void refresh('stale', { silent: true })
   }
