@@ -55,7 +55,8 @@ function createInvestment() {
     currency: 'USD',
     amount: 0,
     quantity: 2,
-    manualUnitPrice: null,
+    costBasisUnitPrice: null,
+    manualPrice: null,
     valuationMode: 'live_preferred',
     notes: null,
   })
@@ -121,5 +122,72 @@ describe('quote staleness', () => {
     expect(second.rows[0].source).toBe('stale')
     expect(second.rows[0].usdAmount).toBe(200)
     expect(second.warnings.some(warning => warning.includes('VWRA.L: symbol not found'))).toBe(true)
+  })
+
+  it('ignores a quote whose currency does not match the holding', async () => {
+    createAsset({
+      kind: 'investment',
+      name: 'SGD holding',
+      symbol: 'VWRA.L',
+      market: 'LSE',
+      currency: 'SGD',
+      amount: 0,
+      quantity: 2,
+      costBasisUnitPrice: 100,
+      manualPrice: 120,
+      valuationMode: 'live_preferred',
+      notes: null,
+    })
+
+    fetchQuoteBatch.mockResolvedValueOnce({
+      byKey: new Map([[QUOTE_KEY, { ...quoteSnapshot(), price: 150, currency: 'USD' }]]),
+      errors: [],
+      requested: 1,
+    })
+
+    const sheet = await buildBalanceSheet('always')
+    const row = sheet.rows.find(item => item.name === 'SGD holding')
+
+    expect(row?.source).toBe('manual')
+    expect(row?.nativeCurrency).toBe('SGD')
+    expect(row?.nativeAmount).toBe(240)
+    expect(row?.currentUnitPrice).toBe(120)
+    expect(row?.pnlSgd).toBeNull()
+    expect(
+      sheet.warnings.some(warning => warning.includes('USD quote') && warning.includes('SGD')),
+    ).toBe(true)
+  })
+
+  it('computes P&L from cost basis, not the manual fallback price', async () => {
+    createAsset({
+      kind: 'investment',
+      name: 'P&L ETF',
+      symbol: 'VWRA.L',
+      market: 'LSE',
+      currency: 'USD',
+      amount: 0,
+      quantity: 2,
+      costBasisUnitPrice: 100,
+      manualPrice: 120,
+      valuationMode: 'live_preferred',
+      notes: null,
+    })
+
+    fetchQuoteBatch.mockResolvedValueOnce({
+      byKey: new Map([[QUOTE_KEY, { ...quoteSnapshot(), price: 150 }]]),
+      errors: [],
+      requested: 1,
+    })
+
+    const sheet = await buildBalanceSheet('always')
+    const row = sheet.rows.find(item => item.name === 'P&L ETF')
+
+    expect(row?.source).toBe('live')
+    expect(row?.boughtUnitPrice).toBe(100)
+    expect(row?.currentUnitPrice).toBe(150)
+    expect(row?.costBasisNative).toBe(200)
+    expect(row?.pnlNative).toBe(100)
+    expect(row?.pnlUsd).toBe(100)
+    expect(row?.pnlSgd).toBe(135)
   })
 })

@@ -30,6 +30,10 @@ npm run dev
 
 App runs on [http://localhost:3000](http://localhost:3000).
 
+The SQLite schema is migrated automatically on server start. After editing
+`server/database/schema.ts`, run `npm run db:generate` and commit the generated
+migration under `server/database/migrations/`.
+
 ## Environment Variables
 - `NUXT_DATABASE_PATH` (default: `./data/vesto-v2.db`)
 - `NUXT_VESTO_GO_BASE_URL` (default: `http://localhost:8080`)

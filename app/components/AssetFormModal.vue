@@ -61,8 +61,14 @@
             </label>
 
             <label>
-              <span>Manual Unit Price</span>
-              <input v-model.number="form.manualUnitPrice" class="bs-input" type="number" step="0.0001" min="0">
+              <span>Cost Basis / Unit</span>
+              <input v-model.number="form.costBasisUnitPrice" class="bs-input" type="number" step="0.0001" min="0">
+            </label>
+
+            <label>
+              <span>Manual Price / Unit</span>
+              <input v-model.number="form.manualPrice" class="bs-input" type="number" step="0.0001" min="0">
+              <small class="muted">Fallback when no live quote is available.</small>
             </label>
           </template>
 
@@ -110,7 +116,8 @@ interface AssetPayload {
   currency: AssetEntry['currency']
   amount: number
   quantity?: number | null
-  manualUnitPrice?: number | null
+  costBasisUnitPrice?: number | null
+  manualPrice?: number | null
   valuationMode: AssetEntry['valuationMode']
   notes?: string | null
 }
@@ -139,7 +146,8 @@ const form = reactive<AssetPayload>({
   currency: 'USD',
   amount: 0,
   quantity: 1,
-  manualUnitPrice: null,
+  costBasisUnitPrice: null,
+  manualPrice: null,
   valuationMode: 'live_preferred',
   notes: null,
 })
@@ -156,7 +164,8 @@ function resetForm() {
     form.currency = props.initial.currency
     form.amount = props.initial.amount
     form.quantity = props.initial.quantity ?? 1
-    form.manualUnitPrice = props.initial.manualUnitPrice
+    form.costBasisUnitPrice = props.initial.costBasisUnitPrice
+    form.manualPrice = props.initial.manualPrice
     form.valuationMode = props.initial.valuationMode
     form.notes = props.initial.notes
     return
@@ -170,7 +179,8 @@ function resetForm() {
   form.currency = 'USD'
   form.amount = 0
   form.quantity = 1
-  form.manualUnitPrice = null
+  form.costBasisUnitPrice = null
+  form.manualPrice = null
   form.valuationMode = 'live_preferred'
   form.notes = null
 }
@@ -193,7 +203,8 @@ function submitForm() {
     currency: form.currency,
     amount: form.kind === 'investment' ? (form.amount || 0) : form.amount,
     quantity: form.kind === 'investment' ? form.quantity : null,
-    manualUnitPrice: form.kind === 'investment' ? form.manualUnitPrice : null,
+    costBasisUnitPrice: form.kind === 'investment' ? form.costBasisUnitPrice : null,
+    manualPrice: form.kind === 'investment' ? form.manualPrice : null,
     valuationMode: form.valuationMode,
     notes: form.notes,
   })

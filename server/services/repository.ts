@@ -20,7 +20,8 @@ interface AssetWriteInput {
   currency: CurrencyCode
   amount: number
   quantity?: number | null
-  manualUnitPrice?: number | null
+  costBasisUnitPrice?: number | null
+  manualPrice?: number | null
   valuationMode: ValuationMode
   notes?: string | null
   externalId?: string | null
@@ -52,7 +53,8 @@ function toAssetDomain(row: typeof assetEntries.$inferSelect): AssetEntry {
     currency: row.currency as CurrencyCode,
     amount: Number(row.amount),
     quantity: row.quantity === null ? null : Number(row.quantity),
-    manualUnitPrice: row.manualUnitPrice === null ? null : Number(row.manualUnitPrice),
+    costBasisUnitPrice: row.costBasisUnitPrice === null ? null : Number(row.costBasisUnitPrice),
+    manualPrice: row.manualPrice === null ? null : Number(row.manualPrice),
     valuationMode: row.valuationMode as ValuationMode,
     notes: row.notes,
     externalId: row.externalId,
@@ -105,7 +107,11 @@ export function createAsset(input: AssetWriteInput): AssetEntry {
     currency: input.currency,
     amount: input.amount,
     quantity: input.quantity ?? null,
-    manualUnitPrice: input.manualUnitPrice ?? null,
+    // Deprecated mirror of cost basis, kept for one release so rolling back the
+    // image still reads a sensible value. The app no longer reads this column.
+    manualUnitPrice: input.costBasisUnitPrice ?? null,
+    costBasisUnitPrice: input.costBasisUnitPrice ?? null,
+    manualPrice: input.manualPrice ?? null,
     valuationMode: input.valuationMode,
     notes: normalizeOptionalText(input.notes),
     externalId: normalizeOptionalText(input.externalId),
@@ -136,7 +142,10 @@ export function updateAsset(id: number, input: AssetWriteInput): AssetEntry {
     currency: input.currency,
     amount: input.amount,
     quantity: input.quantity ?? null,
-    manualUnitPrice: input.manualUnitPrice ?? null,
+    // Deprecated mirror of cost basis; see createAsset.
+    manualUnitPrice: input.costBasisUnitPrice ?? null,
+    costBasisUnitPrice: input.costBasisUnitPrice ?? null,
+    manualPrice: input.manualPrice ?? null,
     valuationMode: input.valuationMode,
     notes: normalizeOptionalText(input.notes),
     externalId: normalizeOptionalText(input.externalId),

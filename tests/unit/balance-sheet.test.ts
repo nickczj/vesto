@@ -30,7 +30,8 @@ function seedAssetData() {
     currency: 'USD',
     amount: 0,
     quantity: 2,
-    manualUnitPrice: 100,
+    costBasisUnitPrice: 100,
+    manualPrice: 100,
     valuationMode: 'live_preferred',
     notes: null,
   })
@@ -42,7 +43,8 @@ function seedAssetData() {
     currency: 'SGD',
     amount: 500,
     quantity: null,
-    manualUnitPrice: null,
+    costBasisUnitPrice: null,
+    manualPrice: null,
     valuationMode: 'manual_only',
     notes: null,
   })
@@ -119,7 +121,8 @@ describe('balance sheet service', () => {
       currency: 'USD',
       amount: 0,
       quantity: 10,
-      manualUnitPrice: null,
+      costBasisUnitPrice: null,
+      manualPrice: null,
       valuationMode: 'live_preferred',
       notes: null,
     })

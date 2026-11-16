@@ -17,7 +17,8 @@ interface AssetUpsertPayload {
   currency: CurrencyCode
   amount: number
   quantity?: number | null
-  manualUnitPrice?: number | null
+  costBasisUnitPrice?: number | null
+  manualPrice?: number | null
   valuationMode: AssetEntry['valuationMode']
   notes?: string | null
 }
@@ -64,13 +65,14 @@ function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
       : 'investments'
 
   const isInvestment = payload.kind === 'investment'
-  const manualUnitPrice = payload.manualUnitPrice ?? null
+  const manualPrice = payload.manualPrice ?? null
+  const costBasis = payload.costBasisUnitPrice ?? null
   const nativeAmount = isInvestment
-    ? (manualUnitPrice !== null ? (payload.quantity || 0) * manualUnitPrice : 0)
+    ? (manualPrice !== null ? (payload.quantity || 0) * manualPrice : 0)
     : payload.amount
-  const boughtUnitPrice = isInvestment ? manualUnitPrice : null
-  const costBasisNative = isInvestment && boughtUnitPrice !== null
-    ? (payload.quantity || 0) * boughtUnitPrice
+  const boughtUnitPrice = isInvestment ? costBasis : null
+  const costBasisNative = isInvestment && costBasis !== null
+    ? (payload.quantity || 0) * costBasis
     : null
 
   return {
@@ -83,7 +85,7 @@ function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
     nativeCurrency: payload.currency,
     nativeAmount,
     boughtUnitPrice,
-    currentUnitPrice: isInvestment ? manualUnitPrice : null,
+    currentUnitPrice: isInvestment ? manualPrice : null,
     costBasisNative,
     costBasisUsd: null,
     costBasisSgd: null,
@@ -92,7 +94,7 @@ function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
     pnlSgd: null,
     usdAmount: payload.currency === 'USD' ? nativeAmount : 0,
     sgdAmount: payload.currency === 'SGD' ? nativeAmount : 0,
-    source: isInvestment ? (manualUnitPrice !== null ? 'manual' : 'unpriced') : 'book',
+    source: isInvestment ? (manualPrice !== null ? 'manual' : 'unpriced') : 'book',
     asOf: null,
     symbol: payload.symbol || null,
     market: payload.market || null,
