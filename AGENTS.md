@@ -10,13 +10,16 @@
 2. Net worth is always derived as `total assets - total liabilities` in both USD and SGD.
 3. `vesto-go` is market-data only in v1 (quotes + FX). Portfolio records stay in Nuxt SQLite.
 4. v1 supports `USD` and `SGD` only.
-5. Snapshot-only v1 (no historical analytics in this repo).
+5. Daily valuation history is captured once per SGT day at 08:00. There is no
+   backfill; a missed day is a permanent hole. Portfolio drawdown is a read-time
+   view over that series, not a separate service or alert.
 
 ## Data Ownership
 - Nuxt SQLite tables:
   - `asset_entries`
   - `liability_entries`
   - `app_settings`
+  - `valuation_history` (one row per SGT date; captured by the `snapshot` sidecar)
 - External backend (`vesto-go`) provides:
   - `POST /v1/quotes/latest/batch`
   - `GET /api/market/fx?base=USD&quote=SGD`
@@ -45,6 +48,10 @@
 - `GET /api/sources?refresh=stale|always` — BFF proxy for vesto-go `/v1/sources`.
   It passes the markets the portfolio holds so out-of-scope providers report
   `not_applicable` rather than looking dead. The browser never calls vesto-go.
+- `GET /api/history?days=365` — daily valuation series plus read-time drawdown.
+- `POST /api/snapshots` — authenticated, idempotent capture for the current SGT
+  date. `?force=always` overwrites a complete day; normal retries may only
+  improve an incomplete one.
 - `GET /api/healthz` (public; everything else requires HTTP Basic auth in production)
 
 ## UI Contract
@@ -61,11 +68,17 @@
   valuation state stays in the table. The chip is diagnostic, not a dashboard.
 - The Source column shows `provider · valuation-state` when a quote supplied
   the price (`yahoo_scrape · live`), and just the state otherwise.
+- The net-worth history card sits above the table. It plots complete days only,
+  shows SGD as the headline, and reports drawdown from the running peak at read
+  time. Incomplete days are counted but excluded from the chart and drawdown.
+- Say that history starts when the series starts and cannot be backfilled.
 
 ## Auth & Backup
 - HTTP Basic auth is enforced by `server/middleware/auth.ts`; `/api/healthz` stays public for deploys.
 - Production fails closed (503) when `NUXT_AUTH_PASSWORD` is unset.
 - The NAS `backup` service writes consistent SQLite snapshots; restore with `deploy/restore-db.sh`.
+- The NAS `snapshot` service calls authenticated `POST /api/snapshots` daily at
+  08:00 SGT and retries for up to two hours. It has no volume and owns no data.
 - The Mac mini pulls a verified off-host copy twice daily with `deploy/backup-pull.sh`; off-site replication is still pending.
 
 ## Engineering Notes
@@ -74,6 +87,12 @@
 - The SQLite schema lives in `server/database/schema.ts`. After changing it, run
   `npm run db:generate` and commit the generated migration under
   `server/database/migrations/`. Migrations run at startup.
+- Valuation history uses the same `buildBalanceSheet('always')` path as the page;
+  do not duplicate valuation logic in the snapshot script or in SQL.
+- `as_of_date` is the SGT calendar date (UTC+8, no DST). A complete day is final
+  unless `force=always`; incomplete days may be improved by retries.
+- Drawdown is computed at read time over complete days only. Never store it and
+  never let an incomplete day set a peak.
 - Do not add raw DDL to plugins. `manual_unit_price` was dropped in
   `0002_drop_manual_unit_price.sql`; new code reads `cost_basis_unit_price` and
   `manual_price` only.

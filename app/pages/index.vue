@@ -71,6 +71,13 @@
       </ul>
     </section>
 
+    <ValuationHistoryCard
+      :history="history"
+      :loading="historyLoading"
+      :error="historyError"
+      @refresh="loadHistory"
+    />
+
     <BalanceSheetTable
       :rows="rows"
       :totals="sheet.totals"
@@ -115,7 +122,17 @@ const {
   updateLiability,
   removeLiability,
 } = useBalanceSheet()
+const {
+  history,
+  isLoading: historyLoading,
+  errorMessage: historyError,
+  load: loadHistory,
+} = useValuationHistory()
 const { toggleTheme } = useThemeMode()
+
+onMounted(() => {
+  void loadHistory()
+})
 
 const assetModalOpen = ref(false)
 const liabilityModalOpen = ref(false)

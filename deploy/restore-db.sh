@@ -4,7 +4,7 @@
 # Run this on the NAS from anywhere; paths are resolved from the script.
 #   ./restore-db.sh /home/nick/services/vesto/backups/vesto-v2-<stamp>.db
 #
-# The script stops the app and backup containers, archives the current
+# The script stops the app, backup and snapshot containers, archives the current
 # database (including -wal/-shm), installs the snapshot, and waits for health.
 
 set -euo pipefail
@@ -17,6 +17,7 @@ ENV_FILE="${ENV_FILE:-${PROJECT_ROOT}/.env}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-vesto-v2}"
 APP_SERVICE_NAME="${APP_SERVICE_NAME:-vesto-v2}"
 BACKUP_SERVICE_NAME="${BACKUP_SERVICE_NAME:-backup}"
+SNAPSHOT_SERVICE_NAME="${SNAPSHOT_SERVICE_NAME:-snapshot}"
 DATA_DIR="${DATA_DIR:-${PROJECT_ROOT}/data}"
 HEALTH_PATH="${HEALTH_PATH:-/api/healthz}"
 HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-120}"
@@ -97,7 +98,7 @@ export IMAGE_REPO="${image_repo}"
 export IMAGE_TAG="${image_tag}"
 
 echo "Stopping writers..."
-"${COMPOSE_CMD[@]}" stop "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}" || true
+"${COMPOSE_CMD[@]}" stop "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}" "${SNAPSHOT_SERVICE_NAME}" || true
 
 mkdir -p "${DATA_DIR}/restore-archive"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -114,7 +115,7 @@ cp "${BACKUP_FILE}" "${DATA_DIR}/vesto-v2.db"
 chmod 0644 "${DATA_DIR}/vesto-v2.db"
 
 echo "Starting ${APP_SERVICE_NAME} with image tag ${image_tag}..."
-"${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}"
+"${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}" "${SNAPSHOT_SERVICE_NAME}"
 
 deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS))
 while (( SECONDS < deadline )); do

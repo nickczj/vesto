@@ -9,6 +9,7 @@ ENV_FILE="${ENV_FILE:-${PROJECT_ROOT}/.env}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-vesto-v2}"
 APP_SERVICE_NAME="${APP_SERVICE_NAME:-vesto-v2}"
 BACKUP_SERVICE_NAME="${BACKUP_SERVICE_NAME:-backup}"
+SNAPSHOT_SERVICE_NAME="${SNAPSHOT_SERVICE_NAME:-snapshot}"
 APP_HEALTH_HOST="${APP_HEALTH_HOST:-127.0.0.1}"
 APP_HEALTH_PATH="${APP_HEALTH_PATH:-/api/healthz}"
 APP_HEALTH_TIMEOUT_SECONDS="${APP_HEALTH_TIMEOUT_SECONDS:-120}"
@@ -96,8 +97,10 @@ rollback() {
   fi
 
   echo "Rolling back ${APP_SERVICE_NAME} to tag ${previous_tag}"
-  # Leave the backup sidecar on the newer image: an older app image may not
-  # contain the backup script at all.
+  # Leave the sidecars on the newer image: an older app image may not contain
+  # their scripts or endpoints at all. A newer snapshot sidecar only logs
+  # retryable failures against the older app until the next successful deploy;
+  # it cannot affect the app or the data.
   IMAGE_TAG="${previous_tag}" "${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}"
   if ! wait_for_health; then
     echo "Rollback failed health check at ${HEALTH_URL}" >&2
@@ -112,6 +115,7 @@ print_diagnostics() {
   "${COMPOSE_CMD[@]}" ps >&2 || true
   "${COMPOSE_CMD[@]}" logs --no-color --tail=200 "${APP_SERVICE_NAME}" >&2 || true
   "${COMPOSE_CMD[@]}" logs --no-color --tail=50 "${BACKUP_SERVICE_NAME}" >&2 || true
+  "${COMPOSE_CMD[@]}" logs --no-color --tail=50 "${SNAPSHOT_SERVICE_NAME}" >&2 || true
 }
 
 wait_for_health() {
@@ -138,7 +142,7 @@ echo "Pulling images..."
 IMAGE_TAG="${IMAGE_TAG}" "${COMPOSE_CMD[@]}" pull "${APP_SERVICE_NAME}"
 
 echo "Starting ${APP_SERVICE_NAME}..."
-IMAGE_TAG="${IMAGE_TAG}" "${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}"
+IMAGE_TAG="${IMAGE_TAG}" "${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}" "${SNAPSHOT_SERVICE_NAME}"
 
 echo "Waiting for health endpoint: ${HEALTH_URL}"
 if ! wait_for_health; then

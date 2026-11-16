@@ -41,6 +41,36 @@ docker compose --project-name vesto-v2 --env-file .env -f deploy/docker-compose.
   run --rm --no-deps backup node /app/scripts/backup-db.mjs --once
 ```
 
+## Valuation history
+
+The `snapshot` sidecar runs on the app image and calls authenticated
+`POST /api/snapshots` once per SGT date at 08:00 (00:00 UTC). It retries for up
+to `SNAPSHOT_RETRY_MINUTES` (default 120) while FX or a provider is unavailable,
+and it catches up on startup if today's row is missing or incomplete. The app
+owns the valuation logic; the sidecar owns no data and has no volume.
+
+- One row per `as_of_date` in `valuation_history`. A complete day is final; an
+  incomplete day may be improved by retries. `?force=always` overwrites.
+- There is no backfill. A missed day stays missing.
+- The chart and portfolio drawdown use complete days only; incomplete days are
+  stored and counted but excluded.
+
+```sh
+cd /home/nick/services/vesto/deploy
+docker compose --project-name vesto-v2 --env-file ../.env -f docker-compose.nas.yml logs --tail=30 snapshot
+
+cd /home/nick/services/vesto
+sqlite3 data/vesto-v2.db "SELECT as_of_date, net_worth_sgd, unpriced, is_complete FROM valuation_history ORDER BY as_of_date DESC LIMIT 7;"
+```
+
+Manual capture (runs one attempt with retries, useful after a restart):
+
+```sh
+cd /home/nick/services/vesto
+docker compose --project-name vesto-v2 --env-file .env -f deploy/docker-compose.nas.yml \
+  run --rm --no-deps snapshot node /app/scripts/valuation-snapshot.mjs --once
+```
+
 ## Restore
 
 Pick a snapshot and run the restore script from the deploy directory. It
@@ -71,7 +101,8 @@ Run after any deploy that touches money math, auth, data, or the container layou
 4. No unexpected `unpriced` badges; if FX is deliberately unavailable, the banner appears.
 5. Create, edit and delete a test liability; refresh; the change persists.
 6. `docker compose ... logs --tail=20 backup` shows a snapshot with asset/liability counts.
-7. After a schema change: restore the pre-deploy snapshot to a scratch copy and compare row counts.
+7. `docker compose ... logs --tail=20 snapshot` shows a capture or an `unchanged` day, and the history card renders without an error.
+8. After a schema change: restore the pre-deploy snapshot to a scratch copy and compare row counts.
 
 ## Off-host copy
 
