@@ -94,4 +94,24 @@ describe('totals accumulation', () => {
     expect(totals.netWorth.usd).toBe(384.62)
     expect(totals.netWorth.sgd).toBe(500)
   })
+
+  it('excludes unpriced rows instead of counting them as zero', () => {
+    const unpriced: BalanceSheetRow = {
+      ...rows[0],
+      id: 'asset:unpriced',
+      entityId: 99,
+      name: 'Unpriced holding',
+      source: 'unpriced',
+      usdAmount: 0,
+      sgdAmount: 0,
+      pnlSgd: null,
+    }
+
+    const totals = accumulateTotals([...rows, unpriced])
+
+    expect(totals.totalAssets.usd).toBe(484.62)
+    expect(totals.totalAssets.sgd).toBe(630)
+    expect(totals.netWorth.usd).toBe(384.62)
+    expect(totals.netWorth.sgd).toBe(500)
+  })
 })

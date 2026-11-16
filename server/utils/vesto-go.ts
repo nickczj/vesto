@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs'
 import type { CurrencyCode, FxSnapshot, QuoteSnapshot } from '~~/shared/types/balance-sheet'
 
-const FX_REQUEST_TIMEOUT_MS = 5_000
-const QUOTE_BATCH_REQUEST_TIMEOUT_MS = 8_000
+const FX_REQUEST_TIMEOUT_MS = 8_000
+const QUOTE_BATCH_REQUEST_TIMEOUT_MS = 12_000
 
 interface LatestQuoteBatchRequestItem {
   symbol: string
@@ -55,9 +55,15 @@ export interface QuoteLookupItem {
   market?: string | null
 }
 
-function canonicalCurrency(raw: string): CurrencyCode {
-  const normalized = raw.trim().toUpperCase()
-  return normalized === 'SGD' ? 'SGD' : 'USD'
+export function canonicalCurrency(raw: string): CurrencyCode | null {
+  switch (raw.trim().toUpperCase()) {
+    case 'USD':
+      return 'USD'
+    case 'SGD':
+      return 'SGD'
+    default:
+      return null
+  }
 }
 
 export function buildQuoteCacheKey(symbol: string, market?: string | null): string {
@@ -127,11 +133,25 @@ export async function fetchQuoteBatch(items: QuoteLookupItem[]): Promise<QuoteBa
     const key = buildQuoteCacheKey(result.request.symbol, result.request.market)
 
     if (result.status >= 200 && result.status < 300 && result.quote) {
+      const currency = canonicalCurrency(result.quote.currency)
+      if (!currency) {
+        errors.push(
+          `${result.request.symbol}: unsupported quote currency ${result.quote.currency || '(empty)'}`,
+        )
+        continue
+      }
+
+      const price = Number(result.quote.price)
+      if (!Number.isFinite(price) || price <= 0) {
+        errors.push(`${result.request.symbol}: invalid quote price`)
+        continue
+      }
+
       byKey.set(key, {
         symbol: result.quote.symbol,
         market: result.quote.market || null,
-        currency: canonicalCurrency(result.quote.currency),
-        price: Number(result.quote.price),
+        currency,
+        price,
         asOf: result.quote.as_of,
         fetchedAt: result.quote.fetched_at,
         source: result.quote.source,

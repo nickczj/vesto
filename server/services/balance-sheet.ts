@@ -11,6 +11,12 @@ import {
 } from '~~/shared/types/balance-sheet'
 import { listAssets, listLiabilities, updateAssetMarket } from '~~/server/services/repository'
 import {
+  loadCachedFx,
+  loadCachedQuotes,
+  saveCachedFx,
+  saveCachedQuotes,
+} from '~~/server/services/snapshot-cache'
+import {
   buildQuoteCacheKey,
   fetchQuoteBatch,
   fetchUsdToSgdFx,
@@ -51,17 +57,78 @@ function sectionForAsset(kind: AssetEntry['kind']): BalanceSection {
   return 'investments'
 }
 
-function buildFallbackFxSnapshot(): FxSnapshot {
-  const now = new Date().toISOString()
-  return {
-    base: 'USD',
-    quote: 'SGD',
-    usdToSgd: 1,
-    sgdToUsd: 1,
-    asOf: now.slice(0, 10),
-    fetchedAt: now,
-    source: 'identity_fallback',
-    isStale: true,
+/**
+ * Load the last-known snapshots persisted in `app_settings`. Everything
+ * restored is marked stale: it may be seconds or days old and has not been
+ * revalidated by an upstream source since the process started.
+ */
+export function restoreSnapshotCache(): void {
+  quoteCache.clear()
+  fxCache = null
+
+  for (const record of loadCachedQuotes()) {
+    quoteCache.set(record.key, {
+      snapshot: { ...record.snapshot, isStale: true },
+      cachedAt: record.cachedAt,
+    })
+  }
+
+  const persistedFx = loadCachedFx()
+  if (persistedFx) {
+    fxCache = {
+      snapshot: { ...persistedFx.snapshot, isStale: true },
+      cachedAt: persistedFx.cachedAt,
+    }
+  }
+}
+
+let snapshotCacheWriteWarned = false
+
+function warnSnapshotCacheWrite(error: unknown): void {
+  if (snapshotCacheWriteWarned) return
+  snapshotCacheWriteWarned = true
+  console.warn('[vesto] snapshot cache write failed:', error)
+}
+
+function persistQuoteCache(): void {
+  try {
+    saveCachedQuotes(
+      [...quoteCache.entries()].map(([key, entry]) => ({
+        key,
+        snapshot: entry.snapshot,
+        cachedAt: entry.cachedAt,
+      })),
+    )
+  }
+  catch (error) {
+    warnSnapshotCacheWrite(error)
+  }
+}
+
+function persistFxCache(entry: FxCacheEntry, savedAt: number): void {
+  try {
+    saveCachedFx(entry, savedAt)
+  }
+  catch (error) {
+    warnSnapshotCacheWrite(error)
+  }
+}
+
+function markQuoteSnapshotStale(cacheKey: string, byKey: Map<string, QuoteSnapshot>): void {
+  const cached = quoteCache.get(cacheKey)
+  if (!cached) return
+
+  const stale: QuoteSnapshot = cached.snapshot.isStale
+    ? cached.snapshot
+    : { ...cached.snapshot, isStale: true }
+
+  quoteCache.set(cacheKey, { snapshot: stale, cachedAt: cached.cachedAt })
+  byKey.set(cacheKey, stale)
+
+  const resolvedKey = resolvedQuoteCacheKey(stale)
+  if (resolvedKey !== cacheKey) {
+    quoteCache.set(resolvedKey, { snapshot: stale, cachedAt: cached.cachedAt })
+    byKey.set(resolvedKey, stale)
   }
 }
 
@@ -128,14 +195,14 @@ function backfillResolvedAssetMarkets(
   }
 }
 
-async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): Promise<FxSnapshot> {
+async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): Promise<FxSnapshot | null> {
   const now = Date.now()
 
   if (refreshMode === 'never') {
     if (fxCache) return fxCache.snapshot
 
-    warnings.push('FX refresh is disabled (refresh=never) and no cached FX snapshot was available.')
-    return buildFallbackFxSnapshot()
+    warnings.push('FX rate unavailable: no cached USD/SGD rate has been stored yet.')
+    return null
   }
 
   if (refreshMode === 'stale' && fxCache && isFresh(fxCache.cachedAt, now)) {
@@ -152,10 +219,12 @@ async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): 
           sgdToUsd: roundRate(freshSnapshot.sgdToUsd),
         }
 
-        fxCache = {
+        const entry: FxCacheEntry = {
           snapshot: normalized,
           cachedAt: now,
         }
+        fxCache = entry
+        persistFxCache(entry, now)
 
         return normalized
       })().finally(() => {
@@ -169,15 +238,15 @@ async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): 
     const message = error instanceof Error ? error.message : String(error)
 
     if (fxCache) {
-      warnings.push(`FX fetch failed (${message}); using cached FX snapshot.`)
+      warnings.push(`FX fetch failed (${message}); using the last-known USD/SGD rate.`)
       return {
         ...fxCache.snapshot,
         isStale: true,
       }
     }
 
-    warnings.push(`FX fetch failed (${message}); using identity fallback rates.`)
-    return buildFallbackFxSnapshot()
+    warnings.push(`FX fetch failed (${message}); USD/SGD totals are unavailable.`)
+    return null
   }
 }
 
@@ -260,12 +329,26 @@ async function resolveQuoteSnapshots(
     if (fetched.errors.length > 0) {
       warnings.push(`Quote batch had partial failures: ${fetched.errors.join('; ')}`)
     }
+
+    // Anything we asked for but did not get back is still showing the previous
+    // snapshot. It must not keep the "live" label it earned on an earlier fetch.
+    for (const item of fetchItems) {
+      const key = buildQuoteCacheKey(item.symbol, item.market)
+      if (!fetched.byKey.has(key)) {
+        markQuoteSnapshotStale(key, byKey)
+      }
+    }
   }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     warnings.push(`Quote batch fetch failed (${message}); using cached/manual fallbacks.`)
+
+    for (const item of fetchItems) {
+      markQuoteSnapshotStale(buildQuoteCacheKey(item.symbol, item.market), byKey)
+    }
   }
 
+  persistQuoteCache()
   backfillResolvedAssetMarkets(assets, byKey, warnings)
 
   return {
@@ -277,7 +360,7 @@ async function resolveQuoteSnapshots(
 function buildAssetRow(
   asset: AssetEntry,
   quoteByKey: Map<string, QuoteSnapshot>,
-  fx: FxSnapshot,
+  fx: FxSnapshot | null,
   warnings: string[],
 ): BalanceSheetRow {
   const section = sectionForAsset(asset.kind)
@@ -295,6 +378,7 @@ function buildAssetRow(
   let pnlUsd: number | null = null
   let pnlSgd: number | null = null
   let resolvedMarket = asset.market
+  let hasMarketPrice = false
 
   if (asset.kind === 'investment') {
     const quantity = asset.quantity || 0
@@ -306,18 +390,25 @@ function buildAssetRow(
       if (asset.manualUnitPrice !== null && asset.manualUnitPrice !== undefined) {
         nativeAmount = quantity * asset.manualUnitPrice
         currentUnitPrice = asset.manualUnitPrice
+        source = 'manual'
       }
-      else {
+      else if (asset.amount > 0) {
         nativeAmount = asset.amount
         currentUnitPrice = quantity > 0 ? roundMoney(asset.amount / quantity) : null
+        source = 'book'
       }
-      source = 'manual'
+      else {
+        nativeAmount = 0
+        source = 'unpriced'
+        warnings.push(`${asset.name}: no manual unit price or book amount available.`)
+      }
     }
     else if (quote) {
       nativeCurrency = quote.currency
       nativeAmount = quantity * quote.price
       currentUnitPrice = roundMoney(quote.price)
       source = quote.isStale ? 'stale' : 'live'
+      hasMarketPrice = true
       asOf = quote.asOf
       resolvedMarket = quote.market ?? asset.market
     }
@@ -325,21 +416,23 @@ function buildAssetRow(
       nativeAmount = quantity * asset.manualUnitPrice
       currentUnitPrice = asset.manualUnitPrice
       source = 'manual'
-      warnings.push(`No live quote for ${asset.symbol}; used manual unit price.`)
+      warnings.push(`No live quote for ${asset.symbol}; used the manual unit price.`)
     }
     else {
-      nativeAmount = asset.amount
-      currentUnitPrice = quantity > 0 ? roundMoney(asset.amount / quantity) : null
-      source = 'book'
-      warnings.push(`No live quote or manual fallback for ${asset.symbol}; used stored amount.`)
+      // No quote and no manual price. The UI never sets `amount` for
+      // investments, so using it here silently valued the holding at $0.
+      nativeAmount = 0
+      source = 'unpriced'
+      warnings.push(`No live quote or manual unit price for ${asset.symbol}; holding is unpriced.`)
     }
 
     if (boughtUnitPrice !== null && quantity > 0) {
       costBasisNative = roundMoney(quantity * boughtUnitPrice)
-      const costConverted = convertNativeAmount(costBasisNative, nativeCurrency, fx)
-      costBasisUsd = costConverted.usd
-      costBasisSgd = costConverted.sgd
-      pnlNative = roundMoney(nativeAmount - costBasisNative)
+      if (fx) {
+        const convertedCost = convertNativeAmount(costBasisNative, nativeCurrency, fx)
+        costBasisUsd = convertedCost.usd
+        costBasisSgd = convertedCost.sgd
+      }
     }
   }
   else {
@@ -348,10 +441,51 @@ function buildAssetRow(
     asOf = asset.updatedAt
   }
 
-  const converted = convertNativeAmount(nativeAmount, nativeCurrency, fx)
-  if (asset.kind === 'investment' && boughtUnitPrice !== null && costBasisNative !== null) {
-    pnlUsd = roundMoney(converted.usd - (costBasisUsd || 0))
-    pnlSgd = roundMoney(converted.sgd - (costBasisSgd || 0))
+  const converted = fx ? convertNativeAmount(nativeAmount, nativeCurrency, fx) : null
+  const isUnpriced = source === 'unpriced' || converted === null
+
+  if (isUnpriced) {
+    // Do not report a partial valuation: an unpriced row contributes nothing
+    // to totals, and its USD/SGD/P&L values must stay unknown rather than 0.
+    source = 'unpriced'
+    pnlNative = null
+    pnlUsd = null
+    pnlSgd = null
+    costBasisUsd = null
+    costBasisSgd = null
+
+    return {
+      id: `asset:${asset.id}`,
+      entityType: 'asset',
+      entityId: asset.id,
+      section,
+      name: asset.name,
+      category: asset.kind === 'cpf' ? `cpf:${asset.cpfBucket || 'N/A'}` : asset.kind,
+      nativeCurrency,
+      nativeAmount: roundMoney(nativeAmount),
+      boughtUnitPrice,
+      currentUnitPrice,
+      costBasisNative,
+      costBasisUsd,
+      costBasisSgd,
+      pnlNative,
+      pnlUsd,
+      pnlSgd,
+      usdAmount: 0,
+      sgdAmount: 0,
+      source,
+      asOf,
+      symbol: asset.symbol,
+      market: resolvedMarket,
+      notes: asset.notes,
+      isLiability: false,
+    }
+  }
+
+  if (hasMarketPrice && costBasisNative !== null) {
+    pnlNative = roundMoney(nativeAmount - costBasisNative)
+    pnlUsd = roundMoney(converted.usd - (costBasisUsd ?? 0))
+    pnlSgd = roundMoney(converted.sgd - (costBasisSgd ?? 0))
   }
 
   return {
@@ -384,9 +518,11 @@ function buildAssetRow(
 
 function buildLiabilityRow(
   liability: ReturnType<typeof listLiabilities>[number],
-  fx: FxSnapshot,
+  fx: FxSnapshot | null,
 ): BalanceSheetRow {
-  const converted = convertNativeAmount(liability.outstandingAmount, liability.currency, fx)
+  const converted = fx
+    ? convertNativeAmount(liability.outstandingAmount, liability.currency, fx)
+    : null
 
   return {
     id: `liability:${liability.id}`,
@@ -405,9 +541,9 @@ function buildLiabilityRow(
     pnlNative: null,
     pnlUsd: null,
     pnlSgd: null,
-    usdAmount: converted.usd,
-    sgdAmount: converted.sgd,
-    source: 'book',
+    usdAmount: converted ? converted.usd : 0,
+    sgdAmount: converted ? converted.sgd : 0,
+    source: converted ? 'book' : 'unpriced',
     asOf: liability.updatedAt,
     symbol: null,
     market: null,
@@ -459,8 +595,9 @@ export async function buildBalanceSheet(refreshMode: RefreshMode): Promise<Balan
     priced: sortedRows.filter(row => row.entityType === 'asset' && (row.source === 'live' || row.source === 'stale')).length,
     stale: sortedRows.filter(row => row.entityType === 'asset' && row.source === 'stale').length,
     manualFallback: sortedRows.filter(
-      row => row.entityType === 'asset' && row.section === 'investments' && (row.source === 'manual' || row.source === 'book'),
+      row => row.entityType === 'asset' && row.section === 'investments' && row.source === 'manual',
     ).length,
+    unpriced: sortedRows.filter(row => row.source === 'unpriced').length,
   }
 
   return {

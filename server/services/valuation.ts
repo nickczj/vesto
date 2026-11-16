@@ -31,16 +31,23 @@ export function convertNativeAmount(amount: number, currency: CurrencyCode, fx: 
   usd: number
   sgd: number
 } {
-  if (currency === 'USD') {
-    return {
-      usd: roundMoney(amount),
-      sgd: roundMoney(amount * fx.usdToSgd),
+  switch (currency) {
+    case 'USD':
+      return {
+        usd: roundMoney(amount),
+        sgd: roundMoney(amount * fx.usdToSgd),
+      }
+    case 'SGD':
+      return {
+        usd: roundMoney(amount * fx.sgdToUsd),
+        sgd: roundMoney(amount),
+      }
+    default: {
+      // Exhaustiveness guard: adding a currency must be a deliberate change,
+      // never an implicit "treat it as USD/SGD".
+      const unsupported: never = currency
+      throw new Error(`unsupported currency: ${String(unsupported)}`)
     }
-  }
-
-  return {
-    usd: roundMoney(amount * fx.sgdToUsd),
-    sgd: roundMoney(amount),
   }
 }
 
@@ -48,6 +55,12 @@ export function accumulateTotals(rows: BalanceSheetRow[]): BalanceSheetTotals {
   const totals = emptyTotals()
 
   for (const row of rows) {
+    // Unpriced rows have no trustworthy USD/SGD value. Counting them as 0 is
+    // worse than not counting them: it silently understates net worth.
+    if (row.source === 'unpriced') {
+      continue
+    }
+
     const sectionTotal = totals.sections[row.section]
     sectionTotal.usd = roundMoney(sectionTotal.usd + row.usdAmount)
     sectionTotal.sgd = roundMoney(sectionTotal.sgd + row.sgdAmount)

@@ -51,6 +51,7 @@ const EMPTY_SHEET: BalanceSheetResponse = {
     priced: 0,
     stale: 0,
     manualFallback: 0,
+    unpriced: 0,
   },
   warnings: [],
 }
@@ -62,17 +63,14 @@ function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
       ? 'cash_savings'
       : 'investments'
 
-  const nativeAmount = payload.kind === 'investment'
-    ? (payload.quantity || 0) * (payload.manualUnitPrice || 0)
+  const isInvestment = payload.kind === 'investment'
+  const manualUnitPrice = payload.manualUnitPrice ?? null
+  const nativeAmount = isInvestment
+    ? (manualUnitPrice !== null ? (payload.quantity || 0) * manualUnitPrice : 0)
     : payload.amount
-  const boughtUnitPrice = payload.kind === 'investment' && payload.manualUnitPrice !== null && payload.manualUnitPrice !== undefined
-    ? payload.manualUnitPrice
-    : null
-  const costBasisNative = payload.kind === 'investment' && boughtUnitPrice !== null
+  const boughtUnitPrice = isInvestment ? manualUnitPrice : null
+  const costBasisNative = isInvestment && boughtUnitPrice !== null
     ? (payload.quantity || 0) * boughtUnitPrice
-    : null
-  const pnlNative = payload.kind === 'investment' && costBasisNative !== null
-    ? nativeAmount - costBasisNative
     : null
 
   return {
@@ -85,16 +83,16 @@ function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
     nativeCurrency: payload.currency,
     nativeAmount,
     boughtUnitPrice,
-    currentUnitPrice: boughtUnitPrice,
+    currentUnitPrice: isInvestment ? manualUnitPrice : null,
     costBasisNative,
     costBasisUsd: null,
     costBasisSgd: null,
-    pnlNative,
+    pnlNative: null,
     pnlUsd: null,
     pnlSgd: null,
     usdAmount: payload.currency === 'USD' ? nativeAmount : 0,
     sgdAmount: payload.currency === 'SGD' ? nativeAmount : 0,
-    source: payload.kind === 'investment' ? 'manual' : 'book',
+    source: isInvestment ? (manualUnitPrice !== null ? 'manual' : 'unpriced') : 'book',
     asOf: null,
     symbol: payload.symbol || null,
     market: payload.market || null,

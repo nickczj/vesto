@@ -8,6 +8,10 @@
           <span>Auto-refresh runs every 45 seconds while the tab is visible.</span>
           <span aria-hidden="true">•</span>
           <span>Last snapshot: {{ formatTimestamp(sheet.generatedAt) }}</span>
+          <template v-if="sheet.quoteSummary.unpriced > 0">
+            <span aria-hidden="true">•</span>
+            <span class="warning">{{ sheet.quoteSummary.unpriced }} unpriced</span>
+          </template>
         </p>
       </div>
 
@@ -24,22 +28,22 @@
     <section class="kpi-grid">
       <article class="kpi-card">
         <h2>Net Worth (USD)</h2>
-        <p>{{ formatCurrency(sheet.totals.netWorth.usd, 'USD') }}</p>
+        <p>{{ displayMoney(sheet.totals.netWorth.usd, 'USD') }}</p>
       </article>
 
       <article class="kpi-card">
         <h2>Net Worth (SGD)</h2>
-        <p>{{ formatCurrency(sheet.totals.netWorth.sgd, 'SGD') }}</p>
+        <p>{{ displayMoney(sheet.totals.netWorth.sgd, 'SGD') }}</p>
       </article>
 
       <article class="kpi-card">
         <h2>Total Assets</h2>
-        <p>{{ formatCurrency(sheet.totals.totalAssets.sgd, 'SGD') }}</p>
+        <p>{{ displayMoney(sheet.totals.totalAssets.sgd, 'SGD') }}</p>
       </article>
 
       <article class="kpi-card">
         <h2>Total Liabilities</h2>
-        <p>{{ formatCurrency(sheet.totals.totalLiabilities.sgd, 'SGD') }}</p>
+        <p>{{ displayMoney(sheet.totals.totalLiabilities.sgd, 'SGD') }}</p>
       </article>
     </section>
 
@@ -49,6 +53,11 @@
       <span>FX as-of: {{ sheet.fx.asOf }}</span>
       <span>FX source: {{ sheet.fx.source }}</span>
       <span v-if="sheet.fx.isStale" class="warning">FX snapshot is stale</span>
+    </section>
+
+    <section v-if="fxUnavailable" class="warning-banner">
+      <strong>FX rate unavailable.</strong>
+      USD/SGD totals are hidden until a USD/SGD rate can be fetched. Native values are still shown.
     </section>
 
     <section v-if="errorMessage" class="error-banner">
@@ -115,6 +124,12 @@ const liabilityModalOpen = ref(false)
 const editingAssetId = ref<number | null>(null)
 const editingLiabilityId = ref<number | null>(null)
 const isExporting = ref(false)
+const fxUnavailable = computed(() => sheet.value.fx === null)
+
+function displayMoney(value: number, currency: 'USD' | 'SGD'): string {
+  if (fxUnavailable.value) return '—'
+  return formatCurrency(value, currency)
+}
 
 const activeAsset = computed<AssetEntry | null>(() => {
   if (!editingAssetId.value) return null

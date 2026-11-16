@@ -21,7 +21,7 @@ export type RefreshMode = (typeof REFRESH_MODES)[number]
 
 export const LIVE_REFRESH_INTERVAL_MS = 45_000
 
-export type ValuationSource = 'live' | 'manual' | 'stale' | 'book'
+export type ValuationSource = 'live' | 'manual' | 'stale' | 'book' | 'unpriced'
 
 export interface AssetEntry {
   id: number
@@ -131,6 +131,7 @@ export interface BalanceSheetResponse {
     priced: number
     stale: number
     manualFallback: number
+    unpriced: number
   }
   warnings: string[]
 }

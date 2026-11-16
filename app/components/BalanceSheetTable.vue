@@ -199,7 +199,20 @@ function formatCurrentPrice(row: BalanceSheetRow): string {
   return formatCurrency(row.currentUnitPrice, row.nativeCurrency)
 }
 
+function formatRowAmount(row: BalanceSheetRow, amount: number, currency: BalanceSheetRow['nativeCurrency']): string {
+  if (row.source === 'unpriced') return '—'
+  return formatSignedCurrency(signedAmount(row, amount), currency)
+}
+
+function formatNativeAmount(row: BalanceSheetRow): string {
+  // A row can be unpriced for totals (no FX) while its native value is still
+  // known. Show it. A zero native amount means "no price", so show an em dash.
+  if (row.source === 'unpriced' && row.nativeAmount === 0) return '—'
+  return formatSignedCurrency(signedAmount(row, row.nativeAmount), row.nativeCurrency)
+}
+
 function formatPnl(row: BalanceSheetRow): string {
+  if (row.source === 'unpriced') return '—'
   if (row.pnlSgd === null) return '-'
   return formatSignedCurrency(row.pnlSgd, 'SGD')
 }
@@ -216,7 +229,15 @@ const columnHelper = createColumnHelper<BalanceSheetRow>()
 const columns = [
   columnHelper.accessor('name', {
     header: 'Name',
-    cell: info => info.getValue(),
+    cell: info => h('span', { class: 'row-name' }, [
+      info.getValue(),
+      info.row.original.source === 'unpriced'
+        ? h('span', {
+            class: 'unpriced-badge',
+            title: 'Excluded from USD/SGD totals: no trustworthy price or FX rate.',
+          }, 'unpriced')
+        : null,
+    ]),
   }),
   columnHelper.accessor('source', {
     id: 'source',
@@ -227,7 +248,7 @@ const columns = [
   columnHelper.display({
     id: 'native',
     header: 'Native',
-    cell: ({ row }) => formatSignedCurrency(signedAmount(row.original, row.original.nativeAmount), row.original.nativeCurrency),
+    cell: ({ row }) => formatNativeAmount(row.original),
     enableSorting: false,
   }),
   columnHelper.display({
@@ -245,13 +266,13 @@ const columns = [
   columnHelper.accessor(row => signedAmount(row, row.usdAmount), {
     id: 'usd',
     header: sortableHeader('USD'),
-    cell: ({ row }) => formatSignedCurrency(signedAmount(row.original, row.original.usdAmount), 'USD'),
+    cell: ({ row }) => formatRowAmount(row.original, row.original.usdAmount, 'USD'),
     sortingFn: sectionFirstNumberSort(row => signedAmount(row, row.usdAmount)),
   }),
   columnHelper.accessor(row => signedAmount(row, row.sgdAmount), {
     id: 'sgd',
     header: sortableHeader('SGD'),
-    cell: ({ row }) => formatSignedCurrency(signedAmount(row.original, row.original.sgdAmount), 'SGD'),
+    cell: ({ row }) => formatRowAmount(row.original, row.original.sgdAmount, 'SGD'),
     sortingFn: sectionFirstNumberSort(row => signedAmount(row, row.sgdAmount)),
   }),
   columnHelper.accessor(row => row.pnlSgd, {
