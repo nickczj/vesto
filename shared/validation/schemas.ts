@@ -16,6 +16,7 @@ export const cpfBucketSchema = z.enum(CPF_BUCKETS)
 export const valuationModeSchema = z.enum(VALUATION_MODES)
 export const refreshModeSchema = z.enum(REFRESH_MODES)
 export const balanceSectionSchema = z.enum(BALANCE_SECTIONS)
+export const historyDaysSchema = z.coerce.number().int().min(1).max(3650).default(365)
 
 export const assetCreateSchema = z.object({
   kind: assetKindSchema,

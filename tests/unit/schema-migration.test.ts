@@ -60,6 +60,11 @@ describe('schema migrations', () => {
     const applied = useSqlite()
       .prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations')
       .get() as { n: number }
-    expect(applied.n).toBe(3)
+    expect(applied.n).toBe(4)
+
+    const history = useSqlite()
+      .prepare("SELECT COUNT(*) AS n FROM pragma_table_info('valuation_history')")
+      .get() as { n: number }
+    expect(history.n).toBe(10)
   })
 })

@@ -40,6 +40,23 @@ services:
       - ../data:/data
       - ../backups:/backups
 
+  # One valuation row per SGT day at 08:00. The app owns the valuation logic;
+  # this sidecar only calls the authenticated /api/snapshots endpoint.
+  snapshot:
+    image: ${IMAGE_REPO}:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      vesto-v2:
+        condition: service_healthy
+    env_file:
+      - ../.env
+    environment:
+      SNAPSHOT_APP_URL: http://vesto-v2:3000
+      SNAPSHOT_HOUR_SGT: "8"
+    command: ["node", "/app/scripts/valuation-snapshot.mjs", "--watch"]
+    networks:
+      - vesto_shared
+
 networks:
   vesto_shared:
     external: true

@@ -41,18 +41,34 @@ migration under `server/database/migrations/`.
   Production returns 503 until a password is configured; `/api/healthz` stays public.
 - `BACKUP_RETENTION_DAYS` (default: `14`) and `BACKUP_INTERVAL_SECS` (default: `86400`)
   for the NAS backup service.
+- `SNAPSHOT_APP_URL` (default: `http://vesto-v2:3000`), `SNAPSHOT_HOUR_SGT`
+  (default: `8`), `SNAPSHOT_RETRY_MINUTES` (default: `120`),
+  `SNAPSHOT_RETRY_INTERVAL_SECS` (default: `600`) and
+  `SNAPSHOT_REQUEST_TIMEOUT_SECS` (default: `30`) for the valuation snapshot
+  sidecar.
 
 ## Main APIs
 - `GET /api/balance-sheet?refresh=never|stale|always`
 - `GET/POST/PATCH/DELETE /api/assets`
 - `GET/POST/PATCH/DELETE /api/liabilities`
 - `GET /api/sources?refresh=stale|always` — proxy for vesto-go provider health
+- `GET /api/history?days=365` — daily valuation history and read-time drawdown
+- `POST /api/snapshots` — authenticated, idempotent daily capture
 - `GET /api/healthz`
 
 ## Backups
 The NAS stack runs a `backup` service that writes consistent daily snapshots
 with SQLite's online backup API (a plain file copy is unsafe in WAL mode).
 See [deploy/RUNBOOK.md](./deploy/RUNBOOK.md) for the restore procedure.
+
+## History
+The `snapshot` sidecar calls the authenticated `POST /api/snapshots` endpoint
+once per SGT day at 08:00 and retries for up to two hours. The app computes the
+same balance sheet the page shows and writes one `valuation_history` row per
+date; repeated calls are idempotent. Complete days are final unless
+`?force=always` is used. There is no backfill, so the series starts on the first
+day the sidecar runs. Portfolio drawdown is computed read-time from the series
+and is never stored.
 
 ## Testing
 ```bash

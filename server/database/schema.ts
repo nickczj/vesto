@@ -52,6 +52,26 @@ export const appSettings = sqliteTable('app_settings', {
   updatedAt: text('updated_at').notNull(),
 })
 
+/**
+ * One row per SGT calendar date. The series is captured by the `snapshot`
+ * sidecar at 08:00 SGT; it is not reconstructed from page loads. There is no
+ * backfill, so a missed day is a permanent hole.
+ */
+export const valuationHistory = sqliteTable('valuation_history', {
+  asOfDate: text('as_of_date').primaryKey(),
+  capturedAt: text('captured_at').notNull(),
+  netWorthUsd: real('net_worth_usd').notNull(),
+  netWorthSgd: real('net_worth_sgd').notNull(),
+  assetsUsd: real('assets_usd').notNull(),
+  liabilitiesUsd: real('liabilities_usd').notNull(),
+  fxUsdSgd: real('fx_usd_sgd').notNull(),
+  // Balance-sheet row counts, not just investments: `unpriced` is every row
+  // excluded from the totals, including liabilities with no FX rate.
+  priced: integer('priced').notNull(),
+  unpriced: integer('unpriced').notNull(),
+  isComplete: integer('is_complete', { mode: 'boolean' }).notNull(),
+})
+
 export type AssetEntryRow = typeof assetEntries.$inferSelect
 export type AssetEntryInsert = typeof assetEntries.$inferInsert
 
