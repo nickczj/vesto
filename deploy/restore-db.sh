@@ -76,15 +76,25 @@ COMPOSE_CMD=(
 )
 
 # Remember which image the stack was running so `up` does not pull a new tag.
+image_repo="${IMAGE_REPO:-}"
 image_tag="${IMAGE_TAG:-}"
-if [[ -z "${image_tag}" ]]; then
+if [[ -z "${image_repo}" || -z "${image_tag}" ]]; then
   container_id="$("${COMPOSE_CMD[@]}" ps -aq "${APP_SERVICE_NAME}" | head -n1 || true)"
   if [[ -n "${container_id}" ]]; then
     image="$(docker inspect --format '{{.Config.Image}}' "${container_id}" 2>/dev/null || true)"
-    image_tag="${image##*:}"
+    if [[ -n "${image}" ]]; then
+      image_repo="${image%:*}"
+      image_tag="${image##*:}"
+    fi
   fi
 fi
 image_tag="${image_tag:-main}"
+if [[ -z "${image_repo}" ]]; then
+  echo "Could not determine IMAGE_REPO. Set it in the environment or ${ENV_FILE}." >&2
+  exit 1
+fi
+export IMAGE_REPO="${image_repo}"
+export IMAGE_TAG="${image_tag}"
 
 echo "Stopping writers..."
 "${COMPOSE_CMD[@]}" stop "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}" || true
@@ -104,7 +114,7 @@ cp "${BACKUP_FILE}" "${DATA_DIR}/vesto-v2.db"
 chmod 0644 "${DATA_DIR}/vesto-v2.db"
 
 echo "Starting ${APP_SERVICE_NAME} with image tag ${image_tag}..."
-IMAGE_TAG="${image_tag}" "${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}"
+"${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}"
 
 deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS))
 while (( SECONDS < deadline )); do
