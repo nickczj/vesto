@@ -36,6 +36,9 @@ jobs:
       - name: Run unit tests
         run: npm test
 
+      - name: Typecheck
+        run: npm run typecheck
+
   build_publish:
     needs: test
     runs-on: ubuntu-latest
