@@ -16,7 +16,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "audit:prod": "node scripts/audit-gate.mjs"
   },
   "dependencies": {
     "@nuxt/ui": "^4.6.0",

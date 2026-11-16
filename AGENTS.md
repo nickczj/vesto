@@ -71,3 +71,15 @@
   `0002_drop_manual_unit_price.sql`; new code reads `cost_basis_unit_price` and
   `manual_price` only.
 - Preserve strict validation with `zod` at API boundaries.
+
+## Dependencies and Security
+- Apply minor/patch updates with `npm update` and `npm audit fix` (never
+  `--force`), then run `npm test`, `npm run typecheck` and `npm run build`.
+- `npm run audit:prod` fails on high/critical production advisories. `xlsx` is
+  the one documented exception: it writes exports from self-authored data, and
+  no untrusted workbooks are parsed.
+- Dependabot opens grouped minor/patch PRs weekly; major upgrades
+  (`@tanstack/vue-table`, `vitest`, `better-sqlite3`) are separate, deliberate
+  changes.
+- The security workflow runs the production audit on PRs, `main` pushes and
+  weekly. It does not replace the deploy workflow's tests.
