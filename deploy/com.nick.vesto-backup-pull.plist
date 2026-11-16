@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.nick.vesto-backup-pull</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/nick/repo/vesto/vesto-v2/deploy/backup-pull.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict>
+      <key>Hour</key>
+      <integer>9</integer>
+      <key>Minute</key>
+      <integer>20</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>21</integer>
+      <key>Minute</key>
+      <integer>20</integer>
+    </dict>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>VESTO_BACKUP_DIR</key>
+    <string>/Users/nick/Backups/vesto</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/nick/Library/Logs/vesto-backup-pull.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/nick/Library/Logs/vesto-backup-pull.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
