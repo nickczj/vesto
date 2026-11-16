@@ -72,6 +72,17 @@
   shows SGD as the headline, and reports drawdown from the running peak at read
   time. Incomplete days are counted but excluded from the chart and drawdown.
 - Say that history starts when the series starts and cannot be backfilled.
+- View preferences live in the header `View` popover: density, KPI card count,
+  primary currency, section visibility, sticky header and sticky name column.
+  The existing Source/Native column toggles use the same store.
+- Preferences are per device: `localStorage` is the source of truth, mirrored to
+  a small cookie so SSR renders the same first paint. Never move them to
+  `app_settings`; there is one Basic-auth identity and no user accounts.
+- Section visibility only filters table rows. The KPI cards and table totals
+  stay full-portfolio, and the page must say so when a section is hidden.
+- Do not expose the 45s poll interval as a free-form setting. It is also the
+  server cache TTL.
+- Excel export stays complete; it does not mirror the current view.
 
 ## Auth & Backup
 - HTTP Basic auth is enforced by `server/middleware/auth.ts`; `/api/healthz` stays public for deploys.

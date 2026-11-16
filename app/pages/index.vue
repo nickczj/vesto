@@ -1,5 +1,5 @@
 <template>
-  <main class="page-shell">
+  <main :class="['page-shell', `density-${preferences.density}`]">
     <section class="page-header">
       <div class="header-copy">
         <h1>Vesto v2 Balance Sheet</h1>
@@ -18,6 +18,7 @@
       <div class="header-actions">
         <SourceStatusChip />
         <UButton size="xs" color="neutral" variant="soft" @click="onToggleTheme">Toggle Theme</UButton>
+        <ViewSettingsPopover />
         <UButton size="xs" color="neutral" variant="soft" :loading="isExporting" @click="onExportExcel">Export Excel</UButton>
         <UButton size="xs" color="neutral" variant="soft" :loading="isLoading" @click="onRefresh">Refresh Now</UButton>
         <UButton size="xs" @click="openCreateAsset">Add Asset</UButton>
@@ -25,25 +26,10 @@
       </div>
     </section>
 
-    <section class="kpi-grid">
-      <article class="kpi-card">
-        <h2>Net Worth (USD)</h2>
-        <p>{{ displayMoney(sheet.totals.netWorth.usd, 'USD') }}</p>
-      </article>
-
-      <article class="kpi-card">
-        <h2>Net Worth (SGD)</h2>
-        <p>{{ displayMoney(sheet.totals.netWorth.sgd, 'SGD') }}</p>
-      </article>
-
-      <article class="kpi-card">
-        <h2>Total Assets</h2>
-        <p>{{ displayMoney(sheet.totals.totalAssets.sgd, 'SGD') }}</p>
-      </article>
-
-      <article class="kpi-card">
-        <h2>Total Liabilities</h2>
-        <p>{{ displayMoney(sheet.totals.totalLiabilities.sgd, 'SGD') }}</p>
+    <section class="kpi-grid" :class="{ 'is-two-up': preferences.kpiCards === 2 }">
+      <article v-for="card in kpiCards" :key="card.label" class="kpi-card">
+        <h2>{{ card.label }}</h2>
+        <p>{{ card.value }}</p>
       </article>
     </section>
 
@@ -78,8 +64,12 @@
       @refresh="loadHistory"
     />
 
+    <p v-if="hiddenSectionLabels.length > 0" class="table-note muted">
+      Showing {{ visibleSections.length }} of 4 sections. Table totals include the hidden {{ hiddenSectionLabels.join(' and ') }}.
+    </p>
+
     <BalanceSheetTable
-      :rows="rows"
+      :rows="tableRows"
       :totals="sheet.totals"
       :loading="isLoading"
       @edit-asset="openEditAsset"
@@ -109,7 +99,7 @@ import { formatCurrency, formatTimestamp } from '~/utils/formatters'
 
 const {
   sheet,
-  rows,
+  rows: allRows,
   assets,
   liabilities,
   isLoading,
@@ -128,7 +118,54 @@ const {
   errorMessage: historyError,
   load: loadHistory,
 } = useValuationHistory()
+const {
+  preferences,
+  visibleSections,
+  hiddenSectionLabels,
+} = useViewPreferences()
 const { toggleTheme } = useThemeMode()
+
+const tableRows = computed(() => allRows.value.filter(row => visibleSections.value.includes(row.section)))
+
+interface KpiCardView {
+  label: string
+  value: string
+}
+
+function amountFor(pair: { usd: number, sgd: number }, currency: 'USD' | 'SGD'): number {
+  return currency === 'USD' ? pair.usd : pair.sgd
+}
+
+const kpiCards = computed<KpiCardView[]>(() => {
+  const primary = preferences.value.primaryCurrency
+  const secondary = primary === 'SGD' ? 'USD' : 'SGD'
+  const totals = sheet.value.totals
+
+  const cards: KpiCardView[] = [
+    {
+      label: `Net Worth (${primary})`,
+      value: displayMoney(amountFor(totals.netWorth, primary), primary),
+    },
+    {
+      label: `Net Worth (${secondary})`,
+      value: displayMoney(amountFor(totals.netWorth, secondary), secondary),
+    },
+    {
+      label: `Total Assets (${primary})`,
+      value: displayMoney(amountFor(totals.totalAssets, primary), primary),
+    },
+    {
+      label: `Total Liabilities (${primary})`,
+      value: displayMoney(amountFor(totals.totalLiabilities, primary), primary),
+    },
+  ]
+
+  if (preferences.value.kpiCards === 2) {
+    return [cards[0]!, cards[2]!]
+  }
+
+  return cards
+})
 
 onMounted(() => {
   void loadHistory()

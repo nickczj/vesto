@@ -1,13 +1,27 @@
 <template>
-  <div class="table-shell">
+  <div
+    class="table-shell"
+    :class="{
+      'sticky-header': preferences.stickyHeader,
+      'sticky-name': preferences.stickyNameColumn,
+    }"
+  >
     <div class="table-toolbar">
       <label class="toolbar-toggle">
-        <input v-model="showSource" type="checkbox">
+        <input
+          type="checkbox"
+          :checked="preferences.showSource"
+          @change="onSourceChange"
+        >
         <span>Show Source</span>
       </label>
 
       <label class="toolbar-toggle">
-        <input v-model="showNative" type="checkbox">
+        <input
+          type="checkbox"
+          :checked="preferences.showNative"
+          @change="onNativeChange"
+        >
         <span>Show Native</span>
       </label>
     </div>
@@ -97,6 +111,7 @@ import {
 } from '@tanstack/vue-table'
 import { computed, h, ref } from 'vue'
 import type { BalanceSection, BalanceSheetRow, BalanceSheetTotals } from '~~/shared/types/balance-sheet'
+import { useViewPreferences } from '~/composables/useViewPreferences'
 import { formatCurrency, formatSignedCurrency } from '~/utils/formatters'
 
 const props = defineProps<{
@@ -127,8 +142,15 @@ const sectionRank: Record<BalanceSection, number> = {
 }
 
 const sorting = ref<SortingState>([])
-const showSource = ref(false)
-const showNative = ref(false)
+const { preferences, setShowSource, setShowNative } = useViewPreferences()
+
+function onSourceChange(event: Event) {
+  setShowSource((event.target as HTMLInputElement).checked)
+}
+
+function onNativeChange(event: Event) {
+  setShowNative((event.target as HTMLInputElement).checked)
+}
 
 function signedAmount(row: BalanceSheetRow, amount: number): number {
   return row.isLiability ? -amount : amount
@@ -331,8 +353,8 @@ const columns = [
 ]
 
 const columnVisibility = computed(() => ({
-  source: showSource.value,
-  native: showNative.value,
+  source: preferences.value.showSource,
+  native: preferences.value.showNative,
 }))
 
 const table = useVueTable({
