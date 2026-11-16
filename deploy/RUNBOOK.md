@@ -136,23 +136,37 @@ serving the balance sheet.
    curl -sS -u vesto:<password> -o /dev/null -w '%{http_code}\n' https://finance.nickczj.com/api/assets  # 200
    ```
 
-## Port binding (two-step, no downtime)
+## Port binding (done 2026-11-16)
 
-The containers currently publish on `0.0.0.0`, so the LAN can bypass Traefik.
-The app port is only needed by Traefik and the local health check.
+Both apps publish only on loopback, and Traefik reaches them over the `traefik`
+Docker network. The LAN can no longer bypass Traefik.
 
-1. **Attach to Traefik first.** The compose file already puts `vesto-v2` on the
-   external `traefik` network. Update the Traefik service URL in
-   `/home/nick/services/traefik/config/dynamic.yaml` from
-   `http://192.168.0.228:42001` to `http://vesto-v2:3000` and reload/restart
-   Traefik. Confirm `https://finance.nickczj.com` still works.
-2. **Bind to loopback.** Set `APP_BIND_IP=127.0.0.1` in `../.env` and redeploy.
-   The health check (`127.0.0.1:42001`) still works; the LAN can no longer reach
-   the app directly.
-3. For `vesto-go`, do the same with `http://vesto-api:8080`, then set
-   `APP_BIND_IP=127.0.0.1` and change Postgres to `127.0.0.1:55432:5432`.
-   Alternatively, drop the `vesto-go.nickczj.com` route entirely; the Nuxt
-   container reaches the API over `vesto-shared`.
+| App | Published | Traefik URL |
+| --- | --- | --- |
+| `vesto-v2` | `127.0.0.1:42001` | `http://vesto-v2:3000` |
+| `vesto-api` | `127.0.0.1:42000` | `http://vesto-api:8080` |
+| Postgres | `127.0.0.1:55432` | n/a |
 
-Rollback: set `APP_BIND_IP=0.0.0.0`, restore the Traefik URL, redeploy. Both
-steps are independent, so a failed step 1 does not require step 2.
+`APP_BIND_IP=127.0.0.1` is set in both `.env` files. The Traefik entries are in
+`/home/nick/services/traefik/config/dynamic.yaml`; the file provider watches for
+changes. The pre-change config is backed up next to it as
+`dynamic.yaml.bak-<timestamp>`.
+
+Verify:
+
+```sh
+curl -sS -o /dev/null -w '%{http_code}\n' https://finance.nickczj.com/api/healthz  # 200
+curl -sS -o /dev/null -w '%{http_code}\n' https://vesto-go.nickczj.com/healthz     # 200
+curl -sS --connect-timeout 3 http://192.168.0.228:42001/api/healthz                # must fail
+curl -sS --connect-timeout 3 http://192.168.0.228:42000/healthz                    # must fail
+```
+
+Rollback: set `APP_BIND_IP=0.0.0.0` in the affected `.env`, then recreate that
+service (`docker compose ... up -d --no-deps <service>`). Restore the old
+Traefik URL only if Traefik cannot reach the container by name. A manual
+recreate needs the current image reference:
+
+```sh
+IMG=$(docker inspect <container> --format '{{.Config.Image}}')
+IMAGE_REPO=${IMG%:*} IMAGE_TAG=${IMG##*:} docker compose ... up -d --no-deps <service>
+```
