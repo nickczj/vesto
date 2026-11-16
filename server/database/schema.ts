@@ -11,9 +11,6 @@ export const assetEntries = sqliteTable('asset_entries', {
   currency: text('currency').notNull().default('SGD'),
   amount: real('amount').notNull().default(0),
   quantity: real('quantity'),
-  // Deprecated: mirror of cost_basis_unit_price kept for one release so an
-  // image rollback still reads a sensible value. The app no longer reads it.
-  manualUnitPrice: real('manual_unit_price'),
   costBasisUnitPrice: real('cost_basis_unit_price'),
   manualPrice: real('manual_price'),
   valuationMode: text('valuation_mode').notNull().default('live_preferred'),
