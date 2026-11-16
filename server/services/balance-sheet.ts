@@ -264,6 +264,11 @@ async function resolveQuoteSnapshots(
   for (const asset of assets) {
     if (asset.kind !== 'investment' || !asset.symbol) continue
 
+    // A manual_only holding is always valued from its manual price, so a quote
+    // for it can never be used. Fetching one only adds upstream calls and a
+    // "quote currency not supported" warning for a row that never reads it.
+    if (asset.valuationMode === 'manual_only') continue
+
     const key = buildQuoteCacheKey(asset.symbol, asset.market)
     if (uniqueKeys.has(key)) continue
 
