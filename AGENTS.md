@@ -30,7 +30,9 @@
 - Liability types: `loan`, `credit_card`, `other`
 - Investment valuation modes:
   - `live_preferred`: use live quote, fallback to manual price
-  - `manual_only`: always use manual price
+  - `manual_only`: always use manual price. These holdings are excluded from
+    the quote batch entirely — a quote could never be used, and fetching one
+    only adds an upstream call and a currency-mismatch warning.
 - Investment price fields:
   - `costBasisUnitPrice`: purchase cost per unit; the only input to P&L.
   - `manualPrice`: fallback unit price, used only when no usable live quote exists.

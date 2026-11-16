@@ -140,4 +140,36 @@ describe('balance sheet service', () => {
     expect(sheet.quoteSummary.unpriced).toBe(1)
     expect(sheet.warnings.some(warning => warning.includes('holding is unpriced'))).toBe(true)
   })
+
+  it('does not request a quote for a manual_only holding', async () => {
+    seedAssetData()
+    createAsset({
+      kind: 'investment',
+      name: 'Tencent',
+      symbol: '0700.HK',
+      market: 'SEHK',
+      currency: 'SGD',
+      amount: 0,
+      quantity: 100,
+      costBasisUnitPrice: null,
+      manualPrice: 76.05,
+      valuationMode: 'manual_only',
+      notes: null,
+    })
+
+    saveCachedFx({ snapshot: fxSnapshot(), cachedAt: Date.now() })
+    restoreSnapshotCache()
+
+    const sheet = await buildBalanceSheet('never')
+
+    // Only the live_preferred VWRA.L holding needs a quote. Requesting one for
+    // 0700.HK would always be discarded and would add an HKD warning.
+    expect(sheet.quoteSummary.requested).toBe(1)
+
+    const row = sheet.rows.find(item => item.name === 'Tencent')
+    expect(row?.source).toBe('manual')
+    expect(row?.provider).toBeNull()
+    expect(row?.nativeAmount).toBe(7605)
+    expect(sheet.warnings.some(warning => warning.includes('HKD'))).toBe(false)
+  })
 })
