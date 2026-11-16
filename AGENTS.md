@@ -42,6 +42,9 @@
 - `GET /api/balance-sheet?refresh=never|stale|always`
 - `GET/POST/PATCH/DELETE /api/assets`
 - `GET/POST/PATCH/DELETE /api/liabilities`
+- `GET /api/sources?refresh=stale|always` — BFF proxy for vesto-go `/v1/sources`.
+  It passes the markets the portfolio holds so out-of-scope providers report
+  `not_applicable` rather than looking dead. The browser never calls vesto-go.
 - `GET /api/healthz` (public; everything else requires HTTP Basic auth in production)
 
 ## UI Contract
@@ -54,6 +57,10 @@
 - Auto-refresh every 45s only while document is visible.
 - Manual refresh is always available.
 - Use modal forms for CRUD.
+- The header has one provider-status chip. It reports provider health; row
+  valuation state stays in the table. The chip is diagnostic, not a dashboard.
+- The Source column shows `provider · valuation-state` when a quote supplied
+  the price (`yahoo_scrape · live`), and just the state otherwise.
 
 ## Auth & Backup
 - HTTP Basic auth is enforced by `server/middleware/auth.ts`; `/api/healthz` stays public for deploys.

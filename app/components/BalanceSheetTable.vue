@@ -242,7 +242,16 @@ const columns = [
   columnHelper.accessor('source', {
     id: 'source',
     header: 'Source',
-    cell: info => info.getValue(),
+    cell: (info) => {
+      const row = info.row.original
+      if (!row.provider) return info.getValue()
+
+      return h('span', { class: 'source-cell' }, [
+        h('span', { class: 'source-provider' }, row.provider),
+        h('span', { class: 'source-separator', 'aria-hidden': 'true' }, ' · '),
+        h('span', {}, info.getValue()),
+      ])
+    },
     enableSorting: false,
   }),
   columnHelper.display({

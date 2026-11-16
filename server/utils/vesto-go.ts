@@ -1,8 +1,15 @@
 import { existsSync } from 'node:fs'
 import type { CurrencyCode, FxSnapshot, QuoteSnapshot } from '~~/shared/types/balance-sheet'
+import {
+  SOURCE_STATES,
+  type SourceHealth,
+  type SourceHealthSnapshot,
+  type SourceState,
+} from '~~/shared/types/source-health'
 
 const FX_REQUEST_TIMEOUT_MS = 8_000
 const QUOTE_BATCH_REQUEST_TIMEOUT_MS = 12_000
+const SOURCE_HEALTH_REQUEST_TIMEOUT_MS = 5_000
 
 interface LatestQuoteBatchRequestItem {
   symbol: string
@@ -42,6 +49,42 @@ interface FxRateResponse {
   asOf: string
   source: string
   isStale?: boolean
+}
+
+interface SourceHealthWireItem {
+  name: string
+  type?: string
+  mode?: string
+  state?: string
+  enabled?: boolean
+  availability?: string
+  disabled_reason?: string
+  markets?: string[]
+  instrument_types?: string[]
+  attempts?: number
+  successes?: number
+  failures?: number
+  provider_failures?: number
+  skipped?: number
+  success_rate?: number
+  p95_latency_ms?: number
+  last_success_at?: string | null
+  last_failure_at?: string | null
+  last_skipped_at?: string | null
+  last_error?: string
+  rate_limit?: {
+    limit?: number
+    remaining?: number
+    reset_at?: string
+    observed_at?: string
+  }
+}
+
+interface SourceHealthWireResponse {
+  as_of?: string
+  window?: string
+  markets?: string[]
+  sources?: SourceHealthWireItem[]
 }
 
 export interface QuoteBatchFetchResult {
@@ -167,6 +210,79 @@ export async function fetchQuoteBatch(items: QuoteLookupItem[]): Promise<QuoteBa
     byKey,
     errors,
     requested: normalizedItems.length,
+  }
+}
+
+function normalizeSourceState(raw: string | undefined): SourceState {
+  const normalized = (raw || '').trim().toLowerCase()
+  return (SOURCE_STATES as readonly string[]).includes(normalized)
+    ? normalized as SourceState
+    : 'no_traffic'
+}
+
+function normalizeSourceHealth(item: SourceHealthWireItem): SourceHealth {
+  const state = normalizeSourceState(item.state)
+
+  return {
+    name: item.name,
+    type: item.type || 'unknown',
+    mode: item.mode || 'unknown',
+    state,
+    enabled: item.enabled ?? (state !== 'disabled' && state !== 'unconfigured'),
+    availability: item.availability || '',
+    disabledReason: item.disabled_reason || null,
+    markets: item.markets || [],
+    instrumentTypes: item.instrument_types || [],
+    attempts: Number(item.attempts) || 0,
+    successes: Number(item.successes) || 0,
+    failures: Number(item.failures) || 0,
+    providerFailures: Number(item.provider_failures) || 0,
+    skipped: Number(item.skipped) || 0,
+    successRate: Math.min(1, Math.max(0, Number(item.success_rate) || 0)),
+    p95LatencyMs: Number(item.p95_latency_ms) || 0,
+    lastSuccessAt: item.last_success_at || null,
+    lastFailureAt: item.last_failure_at || null,
+    lastSkippedAt: item.last_skipped_at || null,
+    lastError: item.last_error || null,
+    rateLimit: item.rate_limit
+      ? {
+          limit: Number(item.rate_limit.limit) || 0,
+          remaining: Number(item.rate_limit.remaining) || 0,
+          resetAt: item.rate_limit.reset_at || '',
+          observedAt: item.rate_limit.observed_at || '',
+        }
+      : null,
+  }
+}
+
+/**
+ * Read provider health from vesto-go. `markets` is the set the portfolio
+ * actually holds, so a provider that does not cover them reports
+ * `not_applicable` instead of looking dead.
+ */
+export async function fetchSourceHealth(markets?: string[]): Promise<SourceHealthSnapshot> {
+  const query: Record<string, string> = {}
+  const normalizedMarkets = (markets || [])
+    .map(market => market.trim().toUpperCase())
+    .filter(Boolean)
+
+  if (normalizedMarkets.length > 0) {
+    query.markets = [...new Set(normalizedMarkets)].sort().join(',')
+  }
+
+  const payload = await $fetch<SourceHealthWireResponse>('/v1/sources', {
+    baseURL: getBaseUrl(),
+    query,
+    retry: 0,
+    timeout: SOURCE_HEALTH_REQUEST_TIMEOUT_MS,
+  })
+
+  return {
+    asOf: payload.as_of || new Date().toISOString(),
+    window: payload.window || '24h0m0s',
+    markets: payload.markets || [],
+    sources: (payload.sources || []).map(normalizeSourceHealth),
+    isStale: false,
   }
 }
 

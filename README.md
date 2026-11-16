@@ -46,6 +46,7 @@ migration under `server/database/migrations/`.
 - `GET /api/balance-sheet?refresh=never|stale|always`
 - `GET/POST/PATCH/DELETE /api/assets`
 - `GET/POST/PATCH/DELETE /api/liabilities`
+- `GET /api/sources?refresh=stale|always` — proxy for vesto-go provider health
 - `GET /api/healthz`
 
 ## Backups
