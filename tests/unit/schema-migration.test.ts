@@ -17,7 +17,7 @@ describe('schema migrations', () => {
     resetTestDatabase(TEST_DB)
   })
 
-  it('adds the split price columns and backfills them from manual_unit_price', () => {
+  it('adds the split price columns, backfills them, and drops the mirror', () => {
     const legacy = new Database(TEST_DB)
     legacy.exec(`
       CREATE TABLE asset_entries (
@@ -49,13 +49,17 @@ describe('schema migrations', () => {
 
     const row = useDb().select().from(assetEntries).get()
     expect(row?.name).toBe('Legacy ETF')
-    expect(row?.manualUnitPrice).toBe(100)
     expect(row?.costBasisUnitPrice).toBe(100)
     expect(row?.manualPrice).toBe(100)
+
+    const mirror = useSqlite()
+      .prepare("SELECT COUNT(*) AS n FROM pragma_table_info('asset_entries') WHERE name = 'manual_unit_price'")
+      .get() as { n: number }
+    expect(mirror.n).toBe(0)
 
     const applied = useSqlite()
       .prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations')
       .get() as { n: number }
-    expect(applied.n).toBe(2)
+    expect(applied.n).toBe(3)
   })
 })

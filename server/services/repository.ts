@@ -107,9 +107,6 @@ export function createAsset(input: AssetWriteInput): AssetEntry {
     currency: input.currency,
     amount: input.amount,
     quantity: input.quantity ?? null,
-    // Deprecated mirror of cost basis, kept for one release so rolling back the
-    // image still reads a sensible value. The app no longer reads this column.
-    manualUnitPrice: input.costBasisUnitPrice ?? null,
     costBasisUnitPrice: input.costBasisUnitPrice ?? null,
     manualPrice: input.manualPrice ?? null,
     valuationMode: input.valuationMode,
@@ -142,8 +139,6 @@ export function updateAsset(id: number, input: AssetWriteInput): AssetEntry {
     currency: input.currency,
     amount: input.amount,
     quantity: input.quantity ?? null,
-    // Deprecated mirror of cost basis; see createAsset.
-    manualUnitPrice: input.costBasisUnitPrice ?? null,
     costBasisUnitPrice: input.costBasisUnitPrice ?? null,
     manualPrice: input.manualPrice ?? null,
     valuationMode: input.valuationMode,

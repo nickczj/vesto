@@ -1,0 +1,1 @@
+ALTER TABLE `asset_entries` DROP COLUMN `manual_unit_price`;

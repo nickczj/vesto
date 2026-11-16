@@ -59,6 +59,7 @@
 - HTTP Basic auth is enforced by `server/middleware/auth.ts`; `/api/healthz` stays public for deploys.
 - Production fails closed (503) when `NUXT_AUTH_PASSWORD` is unset.
 - The NAS `backup` service writes consistent SQLite snapshots; restore with `deploy/restore-db.sh`.
+- The Mac mini pulls a verified off-host copy twice daily with `deploy/backup-pull.sh`; off-site replication is still pending.
 
 ## Engineering Notes
 - Keep server-side valuation deterministic and testable.
@@ -66,6 +67,7 @@
 - The SQLite schema lives in `server/database/schema.ts`. After changing it, run
   `npm run db:generate` and commit the generated migration under
   `server/database/migrations/`. Migrations run at startup.
-- Do not add raw DDL to plugins. `manual_unit_price` is a deprecated mirror of
-  cost basis kept for rollback compatibility; new code reads the split fields.
+- Do not add raw DDL to plugins. `manual_unit_price` was dropped in
+  `0002_drop_manual_unit_price.sql`; new code reads `cost_basis_unit_price` and
+  `manual_price` only.
 - Preserve strict validation with `zod` at API boundaries.
