@@ -27,7 +27,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
 
       - name: Install dependencies
@@ -125,10 +125,12 @@ jobs:
           tar -czf - \
             deploy/docker-compose.nas.yml \
             deploy/deploy.sh \
+            deploy/restore-db.sh \
+            deploy/RUNBOOK.md \
             .env.example \
             | ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "tar -xzf - -C '${NAS_PATH}'"
 
-          ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "chmod +x '${NAS_PATH}/deploy/deploy.sh'"
+          ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "chmod +x '${NAS_PATH}/deploy/deploy.sh' '${NAS_PATH}/deploy/restore-db.sh'"
 
       - name: Execute remote deploy
         env:

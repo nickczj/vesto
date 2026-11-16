@@ -38,7 +38,7 @@
 - `GET /api/balance-sheet?refresh=never|stale|always`
 - `GET/POST/PATCH/DELETE /api/assets`
 - `GET/POST/PATCH/DELETE /api/liabilities`
-- `POST /api/migrations/vesto-v1/import`
+- `GET /api/healthz` (public; everything else requires HTTP Basic auth in production)
 
 ## UI Contract
 - Desktop-first grouped table sections:
@@ -51,9 +51,10 @@
 - Manual refresh is always available.
 - Use modal forms for CRUD.
 
-## Migration Contract
-- One-off importer reads legacy `vesto` SQLite data (`holdings`, `cpf_accounts`, `savings_accounts`, `loans`).
-- Idempotency key pattern is `vesto-v1:<entity>:<id>`.
+## Auth & Backup
+- HTTP Basic auth is enforced by `server/middleware/auth.ts`; `/api/healthz` stays public for deploys.
+- Production fails closed (503) when `NUXT_AUTH_PASSWORD` is unset.
+- The NAS `backup` service writes consistent SQLite snapshots; restore with `deploy/restore-db.sh`.
 
 ## Engineering Notes
 - Keep server-side valuation deterministic and testable.

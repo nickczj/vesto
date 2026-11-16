@@ -12,7 +12,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "db:import:v1": "node scripts/import-vesto-v1.mjs",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
   },

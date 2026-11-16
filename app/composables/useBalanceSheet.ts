@@ -334,21 +334,6 @@ export function useBalanceSheet() {
     }
   }
 
-  async function importFromV1(sourcePath?: string) {
-    isMutating.value = true
-    try {
-      const result = await $fetch('/api/migrations/vesto-v1/import', {
-        method: 'POST',
-        body: sourcePath ? { sourcePath } : {},
-      })
-      await refreshAll('always')
-      return result
-    }
-    finally {
-      isMutating.value = false
-    }
-  }
-
   function clearPolling() {
     if (pollingTimer) {
       clearInterval(pollingTimer)
@@ -421,6 +406,5 @@ export function useBalanceSheet() {
     createLiability,
     updateLiability,
     removeLiability,
-    importFromV1,
   }
 }

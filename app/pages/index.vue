@@ -19,7 +19,6 @@
         <UButton size="xs" color="neutral" variant="soft" @click="onToggleTheme">Toggle Theme</UButton>
         <UButton size="xs" color="neutral" variant="soft" :loading="isExporting" @click="onExportExcel">Export Excel</UButton>
         <UButton size="xs" color="neutral" variant="soft" :loading="isLoading" @click="onRefresh">Refresh Now</UButton>
-        <UButton size="xs" color="neutral" variant="soft" :loading="isMutating" @click="onImport">Import v1 Data</UButton>
         <UButton size="xs" @click="openCreateAsset">Add Asset</UButton>
         <UButton size="xs" color="warning" @click="openCreateLiability">Add Liability</UButton>
       </div>
@@ -106,7 +105,6 @@ const {
   assets,
   liabilities,
   isLoading,
-  isMutating,
   errorMessage,
   refresh,
   createAsset,
@@ -115,7 +113,6 @@ const {
   createLiability,
   updateLiability,
   removeLiability,
-  importFromV1,
 } = useBalanceSheet()
 const { toggleTheme } = useThemeMode()
 
@@ -213,11 +210,6 @@ async function onDeleteLiability(id: number) {
 
 async function onRefresh() {
   await refresh('always')
-}
-
-async function onImport() {
-  if (!window.confirm('Import data from legacy v1 SQLite? This operation is idempotent.')) return
-  await importFromV1()
 }
 
 function onToggleTheme() {

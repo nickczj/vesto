@@ -10,7 +10,7 @@
 - `server/database/*`: schema and connection management.
 - `server/services/*`:
   - valuation, FX conversion, subtotal/net-worth aggregation
-  - legacy migration import logic
+  - snapshot cache persistence
 - `server/utils/vesto-go.ts`: external HTTP client with timeout/retry.
 - `server/api/*`: REST endpoints with `zod` validation.
 - `app/components/*`: table + modal CRUD UI.

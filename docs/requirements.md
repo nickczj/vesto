@@ -23,14 +23,14 @@ Build a single-user personal finance application that presents a full balance sh
   - SGD amount
 - Auto-refresh every 45 seconds while page is visible.
 - Manual refresh button.
-- One-off migration path from legacy `vesto` SQLite data.
+- Legacy v1 data was already imported; the endpoint was removed in Phase 2.
 
 ## API Requirements
 - Nuxt APIs:
   - `GET /api/balance-sheet?refresh=never|stale|always`
   - `GET/POST/PATCH/DELETE /api/assets`
   - `GET/POST/PATCH/DELETE /api/liabilities`
-  - `POST /api/migrations/vesto-v1/import`
+- Legacy v1 import was a one-off and its endpoint was removed in Phase 2.
 - External API dependencies (`vesto-go`):
   - `POST /v1/quotes/latest/batch`
   - `GET /api/market/fx?base=USD&quote=SGD`

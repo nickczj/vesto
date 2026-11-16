@@ -9,7 +9,7 @@ Balance-sheet-first personal finance tracker built with Nuxt 4.
 - `vesto-go` integration for live quotes and USD/SGD FX.
 - Manual CRUD flows with optimistic updates.
 - 45-second auto-refresh while tab is visible + manual refresh.
-- One-off idempotent import from legacy `vesto` SQLite data.
+- Consistent daily SQLite snapshots and HTTP Basic auth in production.
 
 ## Documentation
 - [AGENTS.md](./AGENTS.md)
@@ -33,24 +33,21 @@ App runs on [http://localhost:3000](http://localhost:3000).
 ## Environment Variables
 - `NUXT_DATABASE_PATH` (default: `./data/vesto-v2.db`)
 - `NUXT_VESTO_GO_BASE_URL` (default: `http://localhost:8080`)
-- `NUXT_VESTO_V1_DB_PATH` (default: `/Users/nick/repo/vesto/data/Vesto.db`)
+- `NUXT_AUTH_USER` (default: `vesto`) and `NUXT_AUTH_PASSWORD` — HTTP Basic auth.
+  Production returns 503 until a password is configured; `/api/healthz` stays public.
+- `BACKUP_RETENTION_DAYS` (default: `14`) and `BACKUP_INTERVAL_SECS` (default: `86400`)
+  for the NAS backup service.
 
 ## Main APIs
 - `GET /api/balance-sheet?refresh=never|stale|always`
 - `GET/POST/PATCH/DELETE /api/assets`
 - `GET/POST/PATCH/DELETE /api/liabilities`
-- `POST /api/migrations/vesto-v1/import`
 - `GET /api/healthz`
 
-## Legacy Import
-From UI: click **Import v1 Data**.
-
-From CLI:
-```bash
-npm run db:import:v1
-# or
-npm run db:import:v1 -- /absolute/path/to/Vesto.db
-```
+## Backups
+The NAS stack runs a `backup` service that writes consistent daily snapshots
+with SQLite's online backup API (a plain file copy is unsafe in WAL mode).
+See [deploy/RUNBOOK.md](./deploy/RUNBOOK.md) for the restore procedure.
 
 ## Testing
 ```bash
@@ -83,24 +80,30 @@ This repo includes an automated deploy workflow at `.github/workflows/deploy-nas
 
 ### One-time NAS bootstrap
 1. Install Docker Engine + Docker Compose plugin.
-2. Create deploy and data directories:
+2. Create deploy, data and backup directories:
    ```bash
-   mkdir -p /srv/vesto-v2/deploy /srv/vesto-v2/data
+   mkdir -p /srv/vesto-v2/deploy /srv/vesto-v2/data /srv/vesto-v2/backups
    ```
 3. Place runtime env file at `/srv/vesto-v2/.env` (copy from `.env.example` and fill real values).
+   `NUXT_AUTH_PASSWORD` is required; the deploy script refuses to run with it unset or `change_me`.
 4. Ensure deploy user can run Docker and SSH login from GitHub Actions key is allowed.
 5. Configure your existing NAS reverse proxy to route `finance.nickczj.com` to `${APP_PORT}` and keep Tailscale/private access policy enabled.
 
 Important runtime env notes:
 - `APP_PORT` is host/NAS port exposed to the reverse proxy (for example `43000`).
 - `APP_CONTAINER_PORT` is the container port Docker maps to (default `3000`).
+- `APP_BIND_IP` defaults to `0.0.0.0`. Set it to `127.0.0.1` only after the reverse proxy
+  reaches the container over the shared `traefik` Docker network; otherwise the route breaks.
 - `SHARED_DOCKER_NETWORK` should match `vesto-go` (default `vesto-shared`) for container-to-container DNS.
 - `HOST` should be `0.0.0.0` and `PORT` should match `APP_CONTAINER_PORT`.
 - `NUXT_DATABASE_PATH` should be `/data/vesto-v2.db` for persistent SQLite storage.
 - `NUXT_VESTO_GO_BASE_URL` can use shared Docker DNS (`http://vesto-api:8080`) when both stacks are on `SHARED_DOCKER_NETWORK`.
+- `NUXT_AUTH_USER` / `NUXT_AUTH_PASSWORD` protect every route except `/api/healthz` and static assets.
+- `BACKUP_RETENTION_DAYS` (default `14`) and `BACKUP_INTERVAL_SECS` (default `86400`) control snapshots.
 
 ### Deploy behavior
-- Pulls and starts `ghcr.io/<owner>/vesto-v2:sha-<commit>`.
-- Persists SQLite data under `${NAS_DEPLOY_PATH}/data`.
-- Performs bounded health check on `http://127.0.0.1:${APP_PORT}/api/healthz`.
+- Pulls and starts `ghcr.io/<owner>/vesto-v2:sha-<commit>` plus the `backup` sidecar.
+- Persists SQLite data under `${NAS_DEPLOY_PATH}/data` and snapshots under `${NAS_DEPLOY_PATH}/backups`.
+- Performs bounded health check on `http://127.0.0.1:${APP_PORT}/api/healthz` (public).
 - Automatically rolls back to previous image tag if health check fails.
+- Restore procedure: [deploy/RUNBOOK.md](./deploy/RUNBOOK.md).
