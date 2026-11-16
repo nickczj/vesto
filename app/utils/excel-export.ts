@@ -50,6 +50,8 @@ function excelNumber(value: number | null): number | '' {
 }
 
 function toDetailRow(row: BalanceSheetRow): DetailExportRow {
+  const priced = row.source !== 'unpriced'
+
   return {
     Section: SECTION_LABELS[row.section],
     Name: row.name,
@@ -57,13 +59,13 @@ function toDetailRow(row: BalanceSheetRow): DetailExportRow {
     Type: row.entityType,
     Source: row.source,
     AsOf: row.asOf || '',
-    NativeAmount: signedAmount(row, row.nativeAmount),
-    USDAmount: signedAmount(row, row.usdAmount),
-    SGDAmount: signedAmount(row, row.sgdAmount),
+    NativeAmount: !priced && row.nativeAmount === 0 ? '' : signedAmount(row, row.nativeAmount),
+    USDAmount: priced ? signedAmount(row, row.usdAmount) : '',
+    SGDAmount: priced ? signedAmount(row, row.sgdAmount) : '',
     Bought: excelNumber(row.boughtUnitPrice),
     Current: excelNumber(row.currentUnitPrice),
     CostBasisNative: excelNumber(row.costBasisNative),
-    PnlSGD: excelNumber(row.pnlSgd),
+    PnlSGD: priced ? excelNumber(row.pnlSgd) : '',
     Symbol: row.symbol || '',
     Market: row.market || '',
     Notes: row.notes || '',
@@ -116,6 +118,8 @@ export function toSummaryRows(sheet: BalanceSheetResponse): Array<Array<string |
     ['QuotesPriced', sheet.quoteSummary.priced],
     ['QuotesStale', sheet.quoteSummary.stale],
     ['QuotesManualFallback', sheet.quoteSummary.manualFallback],
+    ['QuotesUnpriced', sheet.quoteSummary.unpriced],
+    ['FxAvailable', sheet.fx ? 1 : 0],
   ]
 
   if (sheet.fx) {
