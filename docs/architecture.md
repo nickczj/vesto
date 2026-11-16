@@ -3,7 +3,8 @@
 ## High-Level
 - Frontend: Nuxt 4 + Nuxt UI.
 - Backend-for-frontend: Nitro server routes within the same Nuxt app.
-- Persistence: local SQLite through `better-sqlite3` + `drizzle-orm` schema.
+- Persistence: local SQLite through `better-sqlite3` + `drizzle-orm`. The schema
+  and generated migrations live in `server/database/` and are applied at startup.
 - Market and FX data: read from `vesto-go`.
 
 ## Subsystems

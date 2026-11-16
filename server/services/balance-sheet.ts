@@ -365,7 +365,6 @@ function buildAssetRow(
 ): BalanceSheetRow {
   const section = sectionForAsset(asset.kind)
 
-  let nativeCurrency: CurrencyCode = asset.currency
   let nativeAmount = 0
   let source: BalanceSheetRow['source'] = 'book'
   let asOf: string | null = null
@@ -379,17 +378,18 @@ function buildAssetRow(
   let pnlSgd: number | null = null
   let resolvedMarket = asset.market
   let hasMarketPrice = false
+  const nativeCurrency: CurrencyCode = asset.currency
 
   if (asset.kind === 'investment') {
     const quantity = asset.quantity || 0
-    boughtUnitPrice = asset.manualUnitPrice ?? null
+    boughtUnitPrice = asset.costBasisUnitPrice ?? null
     const quoteKey = asset.symbol ? buildQuoteCacheKey(asset.symbol, asset.market) : null
     const quote = quoteKey ? quoteByKey.get(quoteKey) : undefined
 
     if (asset.valuationMode === 'manual_only') {
-      if (asset.manualUnitPrice !== null && asset.manualUnitPrice !== undefined) {
-        nativeAmount = quantity * asset.manualUnitPrice
-        currentUnitPrice = asset.manualUnitPrice
+      if (asset.manualPrice !== null && asset.manualPrice !== undefined) {
+        nativeAmount = quantity * asset.manualPrice
+        currentUnitPrice = asset.manualPrice
         source = 'manual'
       }
       else if (asset.amount > 0) {
@@ -400,30 +400,47 @@ function buildAssetRow(
       else {
         nativeAmount = 0
         source = 'unpriced'
-        warnings.push(`${asset.name}: no manual unit price or book amount available.`)
+        warnings.push(`${asset.name}: no manual price or book amount available.`)
       }
     }
-    else if (quote) {
-      nativeCurrency = quote.currency
-      nativeAmount = quantity * quote.price
-      currentUnitPrice = roundMoney(quote.price)
-      source = quote.isStale ? 'stale' : 'live'
-      hasMarketPrice = true
-      asOf = quote.asOf
-      resolvedMarket = quote.market ?? asset.market
-    }
-    else if (asset.manualUnitPrice !== null && asset.manualUnitPrice !== undefined) {
-      nativeAmount = quantity * asset.manualUnitPrice
-      currentUnitPrice = asset.manualUnitPrice
-      source = 'manual'
-      warnings.push(`No live quote for ${asset.symbol}; used the manual unit price.`)
-    }
     else {
-      // No quote and no manual price. The UI never sets `amount` for
-      // investments, so using it here silently valued the holding at $0.
-      nativeAmount = 0
-      source = 'unpriced'
-      warnings.push(`No live quote or manual unit price for ${asset.symbol}; holding is unpriced.`)
+      // A holding has one fixed currency. A quote in another currency is not
+      // comparable without an FX pair for it, so ignore it rather than
+      // relabelling the value.
+      if (quote && quote.currency !== asset.currency) {
+        warnings.push(
+          `Ignored the ${quote.currency} quote for ${asset.symbol}: the holding is in ${asset.currency}.`,
+        )
+      }
+
+      if (quote && quote.currency === asset.currency) {
+        nativeAmount = quantity * quote.price
+        currentUnitPrice = roundMoney(quote.price)
+        source = quote.isStale ? 'stale' : 'live'
+        hasMarketPrice = true
+        asOf = quote.asOf
+        resolvedMarket = quote.market ?? asset.market
+      }
+      else if (asset.manualPrice !== null && asset.manualPrice !== undefined) {
+        nativeAmount = quantity * asset.manualPrice
+        currentUnitPrice = asset.manualPrice
+        source = 'manual'
+        if (!quote) {
+          warnings.push(`No live quote for ${asset.symbol}; used the manual price.`)
+        }
+      }
+      else {
+        // No usable quote and no manual price. The UI never sets `amount` for
+        // investments, so using it here would silently value the holding at $0.
+        nativeAmount = 0
+        source = 'unpriced'
+        if (!quote) {
+          warnings.push(`No live quote or manual price for ${asset.symbol}; holding is unpriced.`)
+        }
+        else {
+          warnings.push(`${asset.symbol}: holding is unpriced because the quote currency does not match.`)
+        }
+      }
     }
 
     if (boughtUnitPrice !== null && quantity > 0) {

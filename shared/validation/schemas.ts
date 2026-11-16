@@ -26,7 +26,8 @@ export const assetCreateSchema = z.object({
   currency: currencySchema,
   amount: z.number().nonnegative().default(0),
   quantity: z.number().positive().optional().nullable(),
-  manualUnitPrice: z.number().nonnegative().optional().nullable(),
+  costBasisUnitPrice: z.number().nonnegative().optional().nullable(),
+  manualPrice: z.number().nonnegative().optional().nullable(),
   valuationMode: valuationModeSchema.default('live_preferred'),
   notes: z.string().trim().max(300).optional().nullable(),
   externalId: z.string().trim().min(1).max(120).optional().nullable(),
@@ -58,14 +59,14 @@ export const assetCreateSchema = z.object({
   }
 
   if (input.valuationMode === 'manual_only') {
-    const hasManualPrice = input.manualUnitPrice !== null && input.manualUnitPrice !== undefined
+    const hasManualPrice = input.manualPrice !== null && input.manualPrice !== undefined
     const hasBookAmount = input.amount > 0
 
     if (!hasManualPrice && !hasBookAmount) {
       ctx.addIssue({
-        path: ['manualUnitPrice'],
+        path: ['manualPrice'],
         code: z.ZodIssueCode.custom,
-        message: 'manual_only valuation requires manualUnitPrice or amount',
+        message: 'manual_only valuation requires manualPrice or amount',
       })
     }
   }
@@ -80,7 +81,8 @@ export const assetPatchSchema = z.object({
   currency: currencySchema.optional(),
   amount: z.number().nonnegative().optional(),
   quantity: z.number().positive().optional().nullable(),
-  manualUnitPrice: z.number().nonnegative().optional().nullable(),
+  costBasisUnitPrice: z.number().nonnegative().optional().nullable(),
+  manualPrice: z.number().nonnegative().optional().nullable(),
   valuationMode: valuationModeSchema.optional(),
   notes: z.string().trim().max(300).optional().nullable(),
   externalId: z.string().trim().min(1).max(120).optional().nullable(),

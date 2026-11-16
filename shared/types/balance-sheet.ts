@@ -33,7 +33,8 @@ export interface AssetEntry {
   currency: CurrencyCode
   amount: number
   quantity: number | null
-  manualUnitPrice: number | null
+  costBasisUnitPrice: number | null
+  manualPrice: number | null
   valuationMode: ValuationMode
   notes: string | null
   externalId: string | null

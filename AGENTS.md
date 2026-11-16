@@ -26,8 +26,12 @@
 - CPF buckets: `OA`, `SA`, `MA`, `RA`
 - Liability types: `loan`, `credit_card`, `other`
 - Investment valuation modes:
-  - `live_preferred`: use live quote, fallback to manual unit price
-  - `manual_only`: always use manual unit price
+  - `live_preferred`: use live quote, fallback to manual price
+  - `manual_only`: always use manual price
+- Investment price fields:
+  - `costBasisUnitPrice`: purchase cost per unit; the only input to P&L.
+  - `manualPrice`: fallback unit price, used only when no usable live quote exists.
+  - A holding has one fixed `currency`; a quote in a different currency is ignored with a warning.
 
 ## FX Valuation Contract
 - Canonical FX fetch is `USD->SGD`.
@@ -59,4 +63,9 @@
 ## Engineering Notes
 - Keep server-side valuation deterministic and testable.
 - Treat partial quote failures as non-fatal; fallback to manual/book values and emit warnings.
+- The SQLite schema lives in `server/database/schema.ts`. After changing it, run
+  `npm run db:generate` and commit the generated migration under
+  `server/database/migrations/`. Migrations run at startup.
+- Do not add raw DDL to plugins. `manual_unit_price` is a deprecated mirror of
+  cost basis kept for rollback compatibility; new code reads the split fields.
 - Preserve strict validation with `zod` at API boundaries.

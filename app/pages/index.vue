@@ -167,7 +167,8 @@ async function onSubmitAsset(payload: {
   currency: AssetEntry['currency']
   amount: number
   quantity?: number | null
-  manualUnitPrice?: number | null
+  costBasisUnitPrice?: number | null
+  manualPrice?: number | null
   valuationMode: AssetEntry['valuationMode']
   notes?: string | null
 }) {

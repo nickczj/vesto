@@ -23,6 +23,7 @@ ENV NITRO_PORT=3000
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/scripts/backup-db.mjs ./scripts/backup-db.mjs
+COPY --from=build /app/server/database/migrations ./server/database/migrations
 
 EXPOSE 3000
 
