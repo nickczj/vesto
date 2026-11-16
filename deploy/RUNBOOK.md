@@ -76,18 +76,43 @@ Run after any deploy that touches money math, auth, data, or the container layou
 ## Off-host copy
 
 The snapshots above live on the same NAS. That protects against app bugs and
-bad migrations, not against NAS loss. Backrest is already running at
-`http://nas.local:9898` and mounts `/home/nick` read-only as `/userdata`, but it
-has no plan configured.
+bad migrations, not against NAS loss. The Mac mini pulls a second copy twice
+daily with `deploy/backup-pull.sh` (launchd label
+`com.nick.vesto-backup-pull`), keeping 30 days in `~/Backups/vesto`.
 
-Recommended: create a Backrest plan with the source path
-`/userdata/services/vesto/backups`, a repository that is **not on this NAS**
-(S3/B2 via rclone, or a restic REST/SFTP target), daily schedule, and a
-retention policy (for example 14 daily / 8 weekly / 4 monthly). Verify by
-restoring one snapshot to `/tmp` and opening it with `sqlite3`.
+The pull runs on the Mac on purpose: it starts when the Mac is awake, and
+launchd runs a missed calendar job on wake. Each file is checked with
+`PRAGMA integrity_check` before it is installed, and only snapshots at least two
+minutes old are transferred, so a file cannot be caught mid-write. The transfer
+uses tar over SSH because macOS openrsync cannot talk to the NAS's rsync 3.4.1.
 
-If no off-host target is available yet, copy the latest snapshot to the Mac
-mini manually after a deploy; do not treat NAS-local snapshots as a backup.
+Install on the Mac mini:
+
+```sh
+cp deploy/com.nick.vesto-backup-pull.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.nick.vesto-backup-pull.plist
+launchctl kickstart -k gui/$(id -u)/com.nick.vesto-backup-pull
+```
+
+Verify:
+
+```sh
+tail ~/Library/Logs/vesto-backup-pull.log
+ls -lh ~/Backups/vesto
+sqlite3 -readonly ~/Backups/vesto/<newest>.db 'PRAGMA integrity_check;'
+```
+
+Restore from the Mac copy: copy the chosen file back to the NAS and run
+`restore-db.sh` as above.
+
+This is an off-host copy, not an off-site one: both machines are in the same
+home. Backrest on the NAS (`http://nas.local:9898`) remains the intended
+platform for the off-site copy and whole-NAS backups. Configure it with a
+repository that is **not on this NAS** (S3/B2 via rclone, or a restic
+REST/SFTP target), source `/userdata/services/vesto/backups`, daily schedule,
+and a retention policy (for example 14 daily / 8 weekly / 4 monthly). Verify by
+restoring one snapshot to `/tmp` and opening it with `sqlite3`. Never point a
+Backrest plan at the live `data/vesto-v2.db`: it runs in WAL mode.
 
 ## Auth rollout
 
