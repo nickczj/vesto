@@ -8,6 +8,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.nas.yml}"
 ENV_FILE="${ENV_FILE:-${PROJECT_ROOT}/.env}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-vesto-v2}"
 APP_SERVICE_NAME="${APP_SERVICE_NAME:-vesto-v2}"
+BACKUP_SERVICE_NAME="${BACKUP_SERVICE_NAME:-backup}"
 APP_HEALTH_HOST="${APP_HEALTH_HOST:-127.0.0.1}"
 APP_HEALTH_PATH="${APP_HEALTH_PATH:-/api/healthz}"
 APP_HEALTH_TIMEOUT_SECONDS="${APP_HEALTH_TIMEOUT_SECONDS:-120}"
@@ -50,6 +51,14 @@ if ! [[ "${APP_PORT}" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
+# Fail before touching the running stack: the app refuses to serve in
+# production without credentials (healthz stays public for this check).
+if [[ -z "$(read_env_value NUXT_AUTH_PASSWORD)" ]] || [[ "$(read_env_value NUXT_AUTH_PASSWORD)" == "change_me" ]]; then
+  echo "NUXT_AUTH_PASSWORD must be set to a real value in ${ENV_FILE} before deploying." >&2
+  echo "Add NUXT_AUTH_USER and NUXT_AUTH_PASSWORD, then re-run." >&2
+  exit 1
+fi
+
 HEALTH_URL="http://${APP_HEALTH_HOST}:${APP_PORT}${APP_HEALTH_PATH}"
 
 COMPOSE_CMD=(
@@ -87,6 +96,8 @@ rollback() {
   fi
 
   echo "Rolling back ${APP_SERVICE_NAME} to tag ${previous_tag}"
+  # Leave the backup sidecar on the newer image: an older app image may not
+  # contain the backup script at all.
   IMAGE_TAG="${previous_tag}" "${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}"
   if ! wait_for_health; then
     echo "Rollback failed health check at ${HEALTH_URL}" >&2
@@ -100,6 +111,7 @@ print_diagnostics() {
   echo "Deployment diagnostics (service state + recent logs):" >&2
   "${COMPOSE_CMD[@]}" ps >&2 || true
   "${COMPOSE_CMD[@]}" logs --no-color --tail=200 "${APP_SERVICE_NAME}" >&2 || true
+  "${COMPOSE_CMD[@]}" logs --no-color --tail=50 "${BACKUP_SERVICE_NAME}" >&2 || true
 }
 
 wait_for_health() {
@@ -118,7 +130,7 @@ wait_for_health() {
 echo "Logging in to GHCR..."
 printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
 
-mkdir -p "${PROJECT_ROOT}/data"
+mkdir -p "${PROJECT_ROOT}/data" "${PROJECT_ROOT}/backups"
 
 echo "Deploying image ${IMAGE_REPO}:${IMAGE_TAG}"
 
@@ -126,7 +138,7 @@ echo "Pulling images..."
 IMAGE_TAG="${IMAGE_TAG}" "${COMPOSE_CMD[@]}" pull "${APP_SERVICE_NAME}"
 
 echo "Starting ${APP_SERVICE_NAME}..."
-IMAGE_TAG="${IMAGE_TAG}" "${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}"
+IMAGE_TAG="${IMAGE_TAG}" "${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}"
 
 echo "Waiting for health endpoint: ${HEALTH_URL}"
 if ! wait_for_health; then

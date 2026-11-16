@@ -7,7 +7,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     vestoGoBaseUrl: process.env.NUXT_VESTO_GO_BASE_URL || 'http://localhost:8080',
     databasePath: process.env.NUXT_DATABASE_PATH || './data/vesto-v2.db',
-    vestoV1DbPath: process.env.NUXT_VESTO_V1_DB_PATH || '/Users/nick/repo/vesto/data/Vesto.db',
+    authUser: process.env.NUXT_AUTH_USER || 'vesto',
+    authPassword: process.env.NUXT_AUTH_PASSWORD || '',
     public: {
       appName: 'Vesto v2',
     },

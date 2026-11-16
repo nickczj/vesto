@@ -4,14 +4,12 @@ declare global {
   var __TEST_RUNTIME_CONFIG: {
     databasePath: string
     vestoGoBaseUrl: string
-    vestoV1DbPath: string
   }
 }
 
 globalThis.__TEST_RUNTIME_CONFIG = {
   databasePath: '/tmp/vesto-v2-default-test.db',
   vestoGoBaseUrl: 'http://localhost:8080',
-  vestoV1DbPath: '/tmp/vesto-v1.db',
 }
 
 globalThis.useRuntimeConfig = () => globalThis.__TEST_RUNTIME_CONFIG

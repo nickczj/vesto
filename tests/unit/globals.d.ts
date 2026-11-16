@@ -4,7 +4,6 @@ declare global {
   var useRuntimeConfig: () => {
     databasePath: string
     vestoGoBaseUrl: string
-    vestoV1DbPath: string
   }
 
   // eslint-disable-next-line no-var

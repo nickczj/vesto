@@ -8,13 +8,42 @@ services:
       HOST: ${HOST:-0.0.0.0}
       PORT: ${APP_CONTAINER_PORT:-3000}
     ports:
-      - "${APP_PORT:-43000}:${APP_CONTAINER_PORT:-3000}"
+      - "${APP_BIND_IP:-0.0.0.0}:${APP_PORT:-43000}:${APP_CONTAINER_PORT:-3000}"
     volumes:
       - ../data:/data
     networks:
       - vesto_shared
+      - traefik
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Consistent daily snapshots. The app runs SQLite in WAL mode, so a plain
+  # file copy of vesto-v2.db can be empty; this service uses SQLite's online
+  # backup API and verifies each snapshot.
+  backup:
+    image: ${IMAGE_REPO}:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      vesto-v2:
+        condition: service_healthy
+    env_file:
+      - ../.env
+    environment:
+      BACKUP_DATABASE_PATH: /data/vesto-v2.db
+      BACKUP_DIR: /backups
+    command: ["node", "/app/scripts/backup-db.mjs", "--watch"]
+    volumes:
+      - ../data:/data
+      - ../backups:/backups
 
 networks:
   vesto_shared:
     external: true
     name: ${SHARED_DOCKER_NETWORK:-vesto-shared}
+  traefik:
+    external: true
+    name: traefik

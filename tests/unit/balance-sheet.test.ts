@@ -61,7 +61,6 @@ describe('balance sheet service', () => {
     globalThis.__TEST_RUNTIME_CONFIG = {
       databasePath: TEST_DB,
       vestoGoBaseUrl: 'http://localhost:8080',
-      vestoV1DbPath: '/tmp/vesto-v1.db',
     }
 
     resetTestDatabase(TEST_DB)
