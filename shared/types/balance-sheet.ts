@@ -96,6 +96,8 @@ export interface BalanceSheetRow {
   usdAmount: number
   sgdAmount: number
   source: ValuationSource
+  /** Provider that supplied the quote behind `source`, when one did. */
+  provider: string | null
   asOf: string | null
   symbol: string | null
   market: string | null

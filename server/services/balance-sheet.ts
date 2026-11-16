@@ -378,6 +378,7 @@ function buildAssetRow(
   let pnlSgd: number | null = null
   let resolvedMarket = asset.market
   let hasMarketPrice = false
+  let provider: string | null = null
   const nativeCurrency: CurrencyCode = asset.currency
 
   if (asset.kind === 'investment') {
@@ -420,6 +421,7 @@ function buildAssetRow(
         hasMarketPrice = true
         asOf = quote.asOf
         resolvedMarket = quote.market ?? asset.market
+        provider = quote.source
       }
       else if (asset.manualPrice !== null && asset.manualPrice !== undefined) {
         nativeAmount = quantity * asset.manualPrice
@@ -491,6 +493,7 @@ function buildAssetRow(
       usdAmount: 0,
       sgdAmount: 0,
       source,
+      provider: null,
       asOf,
       symbol: asset.symbol,
       market: resolvedMarket,
@@ -525,6 +528,7 @@ function buildAssetRow(
     usdAmount: converted.usd,
     sgdAmount: converted.sgd,
     source,
+    provider,
     asOf,
     symbol: asset.symbol,
     market: resolvedMarket,
@@ -561,6 +565,7 @@ function buildLiabilityRow(
     usdAmount: converted ? converted.usd : 0,
     sgdAmount: converted ? converted.sgd : 0,
     source: converted ? 'book' : 'unpriced',
+    provider: null,
     asOf: liability.updatedAt,
     symbol: null,
     market: null,
