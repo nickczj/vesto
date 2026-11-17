@@ -136,6 +136,7 @@ import {
 import { RowActionsMenu } from '#components'
 import { computed, h, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { BalanceSection, BalanceSheetRow, BalanceSheetTotals } from '~~/shared/types/balance-sheet'
+import { venueLabel, venueTitle } from '~~/shared/utils/markets'
 import { useViewPreferences } from '~/composables/useViewPreferences'
 import { formatSignedCurrency, formatTimestamp } from '~/utils/formatters'
 import {
@@ -355,7 +356,20 @@ const columns = [
   columnHelper.display({
     id: 'currency',
     header: 'Ccy',
-    cell: ({ row }) => row.original.nativeCurrency,
+    cell: ({ row }) => {
+      const original = row.original
+      const venue = venueLabel(original.market)
+      if (!venue) return original.nativeCurrency
+
+      return h('span', {
+        class: 'ccy-cell',
+        title: venueTitle(original.market) ?? original.nativeCurrency,
+      }, [
+        h('span', { class: 'ccy-code' }, original.nativeCurrency),
+        h('span', { class: 'ccy-separator', 'aria-hidden': 'true' }, ' · '),
+        h('span', { class: 'ccy-venue' }, venue),
+      ])
+    },
     enableSorting: false,
   }),
   columnHelper.display({

@@ -61,6 +61,17 @@
           </span>
         </p>
 
+        <p
+          v-if="resolvedCurrencyMismatch"
+          class="form-resolution is-warn form-span-2"
+        >
+          <span class="resolution-mark" aria-hidden="true">!</span>
+          <span>
+            This ticker quotes in {{ resolvedCurrencyMismatch }}, but the holding is set to {{ form.currency }}.
+            The quote will be ignored and the manual price used. Change the currency for live pricing.
+          </span>
+        </p>
+
         <label class="form-span-2">
           <span>Name</span>
           <input v-model.trim="form.name" class="bs-input" required>
@@ -216,6 +227,7 @@
 <script setup lang="ts">
 import { CURRENCIES, type AssetEntry } from '~~/shared/types/balance-sheet'
 import type { InstrumentResolution } from '~~/shared/types/instrument'
+import { normalizeMarketCode } from '~~/shared/utils/markets'
 import { formatCurrency } from '~/utils/formatters'
 
 interface AssetPayload {
@@ -297,6 +309,13 @@ const showResolution = computed(
   () => resolvedKey.value !== null && resolvedKey.value === currentKey.value && resolution.value !== null,
 )
 
+const resolvedCurrencyMismatch = computed(() => {
+  const resolved = resolution.value
+  if (!showResolution.value || resolved?.status !== 'resolved' || !resolved.quote) return null
+
+  return resolved.quote.currency === form.currency ? null : resolved.quote.currency
+})
+
 const resolutionTone = computed(() => {
   switch (resolution.value?.status) {
     case 'resolved':
@@ -375,6 +394,7 @@ async function resolveSymbol() {
     return
   }
 
+  form.market = normalizeMarketCode(form.market)
   const key = currentKey.value
   resolving.value = true
   submitError.value = null
@@ -391,8 +411,19 @@ async function resolveSymbol() {
 
     resolution.value = result
 
-    if (result.status === 'resolved' && result.quote?.market && !form.market?.trim()) {
-      form.market = result.quote.market
+    if (result.status === 'resolved' && result.quote) {
+      const resolvedMarket = normalizeMarketCode(result.quote.market)
+      if (resolvedMarket && !form.market?.trim()) {
+        form.market = resolvedMarket
+      }
+
+      // A new holding should start in the quote's currency; otherwise the
+      // provider quote is discarded and the row silently falls back to the
+      // manual price. An existing row is never changed here: the operator
+      // confirms a currency change explicitly.
+      if (!props.initial) {
+        form.currency = result.quote.currency
+      }
     }
 
     resolvedKey.value = currentKey.value
@@ -445,7 +476,7 @@ async function submitForm() {
     kind: form.kind,
     name: form.name,
     symbol: form.kind === 'investment' ? form.symbol : null,
-    market: form.kind === 'investment' ? form.market : null,
+    market: form.kind === 'investment' ? normalizeMarketCode(form.market) : null,
     cpfBucket: form.kind === 'cpf' ? form.cpfBucket : null,
     currency: form.currency,
     amount: form.kind === 'investment' ? 0 : form.amount,

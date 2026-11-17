@@ -10,6 +10,7 @@ import {
 } from '~~/shared/types/balance-sheet'
 import { assetEntries, liabilityEntries } from '~~/server/database/schema'
 import { useDb } from '~~/server/utils/db'
+import { normalizeMarketCode } from '~~/shared/utils/markets'
 
 interface AssetWriteInput {
   kind: AssetKind
@@ -102,7 +103,7 @@ export function createAsset(input: AssetWriteInput): AssetEntry {
     kind: input.kind,
     name: input.name.trim(),
     symbol: normalizeOptionalText(input.symbol)?.toUpperCase() || null,
-    market: normalizeOptionalText(input.market)?.toUpperCase() || null,
+    market: normalizeMarketCode(input.market),
     cpfBucket: normalizeOptionalText(input.cpfBucket)?.toUpperCase() || null,
     currency: input.currency,
     amount: input.amount,
@@ -134,7 +135,7 @@ export function updateAsset(id: number, input: AssetWriteInput): AssetEntry {
     kind: input.kind,
     name: input.name.trim(),
     symbol: normalizeOptionalText(input.symbol)?.toUpperCase() || null,
-    market: normalizeOptionalText(input.market)?.toUpperCase() || null,
+    market: normalizeMarketCode(input.market),
     cpfBucket: normalizeOptionalText(input.cpfBucket)?.toUpperCase() || null,
     currency: input.currency,
     amount: input.amount,
@@ -158,7 +159,7 @@ export function updateAsset(id: number, input: AssetWriteInput): AssetEntry {
 export function updateAssetMarket(id: number, market: string): AssetEntry {
   const db = useDb()
   const now = new Date().toISOString()
-  const normalizedMarket = normalizeOptionalText(market)?.toUpperCase()
+  const normalizedMarket = normalizeMarketCode(market)
 
   db.update(assetEntries).set({
     market: normalizedMarket,
