@@ -134,3 +134,8 @@
   changes.
 - The security workflow runs the production audit on PRs, `main` pushes and
   weekly. It does not replace the deploy workflow's tests.
+- Pull requests run unit tests, typecheck and the Playwright suite in
+  `.github/workflows/ci.yml`; `main` is still covered by the deploy workflow.
+  The e2e suite builds first, then serves the built app on `./data/e2e.db` with
+  a throwaway password and no `vesto-go`. Use the built server, not `nuxt dev`:
+  dev does not hydrate an empty sheet cleanly, so the Add menu never opens.

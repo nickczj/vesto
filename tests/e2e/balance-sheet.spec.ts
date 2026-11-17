@@ -19,3 +19,30 @@ test('opens the two-column add asset dialog', async ({ page }) => {
   await expect(page.getByLabel('Ticker')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add asset' })).toBeVisible()
 })
+
+test('closes the dialog on Escape and returns focus to the trigger', async ({ page }) => {
+  await page.goto('/')
+  const add = page.getByRole('button', { name: 'Add' })
+  await add.click()
+  await page.getByRole('menuitem', { name: 'Add asset' }).click()
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await expect(page.getByLabel('Ticker')).toBeFocused()
+
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(add).toBeFocused()
+})
+
+test('applies a stored dark preference on a cold load', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('vesto:theme-mode', 'dark')
+  })
+  await page.goto('/')
+
+  await expect(page.locator('html')).toHaveClass(/\bdark\b/)
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor))
+    .toBe('rgb(15, 21, 27)')
+})

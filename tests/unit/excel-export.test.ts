@@ -89,7 +89,7 @@ const sampleSheet: BalanceSheetResponse = {
     requested: 1,
     priced: 1,
     stale: 0,
-    manualFallback: 0,
+    manualPriced: 0,
   },
   warnings: [],
 }
