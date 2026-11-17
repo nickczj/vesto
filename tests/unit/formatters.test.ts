@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatRecentTimestamp, formatTimestamp } from '~/utils/formatters'
+import { formatClock, formatHistoryDate, formatRecentTimestamp, formatShortDate, formatTimestamp } from '~/utils/formatters'
 
 describe('formatRecentTimestamp', () => {
   // Built from local-time parts so the test does not depend on the machine's zone.
@@ -21,5 +21,23 @@ describe('formatRecentTimestamp', () => {
   it('says N/A for a missing or unreadable value', () => {
     expect(formatRecentTimestamp(null, now)).toBe('N/A')
     expect(formatRecentTimestamp('not a date', now)).toBe('N/A')
+  })
+})
+
+describe('SGT date and time labels', () => {
+  it('formats a day without and with the year', () => {
+    expect(formatShortDate('2026-11-16')).toBe('16 Nov')
+    expect(formatHistoryDate('2026-11-16')).toBe('16 Nov 2026')
+  })
+
+  it('formats a 24-hour clock time in Singapore time', () => {
+    expect(formatClock('2026-11-16T02:57:00Z')).toBe('10:57')
+    expect(formatClock('2026-11-16T16:05:00Z')).toBe('00:05')
+  })
+
+  it('says N/A for missing or unreadable dates', () => {
+    expect(formatShortDate(null)).toBe('N/A')
+    expect(formatHistoryDate('not a date')).toBe('N/A')
+    expect(formatClock(undefined)).toBe('N/A')
   })
 })

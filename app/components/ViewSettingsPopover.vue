@@ -35,30 +35,6 @@
       </div>
 
       <div class="view-group">
-        <span class="view-group-label">KPI cards</span>
-        <div class="segmented" role="group" aria-label="KPI cards">
-          <button
-            type="button"
-            class="segmented-option"
-            :class="{ active: preferences.kpiCards === 4 }"
-            :aria-pressed="preferences.kpiCards === 4"
-            @click="setKpiCards(4)"
-          >
-            4 cards
-          </button>
-          <button
-            type="button"
-            class="segmented-option"
-            :class="{ active: preferences.kpiCards === 2 }"
-            :aria-pressed="preferences.kpiCards === 2"
-            @click="setKpiCards(2)"
-          >
-            2 cards
-          </button>
-        </div>
-      </div>
-
-      <div class="view-group">
         <span class="view-group-label">Primary currency</span>
         <div class="segmented" role="group" aria-label="Primary currency">
           <button
@@ -109,7 +85,7 @@
           <span>Liabilities</span>
         </label>
         <p class="view-hint muted">
-          Investments always stay visible. Hidden sections are removed from the table; the KPIs and totals still cover the full portfolio.
+          Investments always stay visible. Hidden sections are removed from the table; the headline and totals still cover the full portfolio.
         </p>
       </div>
 
@@ -172,7 +148,6 @@ const {
   preferences,
   setDensity,
   setPrimaryCurrency,
-  setKpiCards,
   setSectionVisible,
   setStickyHeader,
   setStickyNameColumn,

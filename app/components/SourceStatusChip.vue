@@ -9,7 +9,7 @@
       @click="toggle"
     >
       <span class="source-dot" aria-hidden="true" />
-      <span>{{ overallLabel }}</span>
+      <span>{{ chipLabel }}</span>
     </button>
 
     <div v-if="isOpen" class="source-panel" role="region" aria-label="Provider health">
@@ -63,43 +63,70 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { MarketDataStatus } from '~~/shared/types/balance-sheet'
-import type { OverallSourceState, SourceHealth, SourceState } from '~~/shared/types/source-health'
-import { formatTimestamp } from '~/utils/formatters'
+import type { SourceHealth, SourceState } from '~~/shared/types/source-health'
+import { formatClock, formatShortDate, formatTimestamp } from '~/utils/formatters'
+import { sgtDateKey } from '~/utils/history-range'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** How the balance sheet's own last call to the market-data service went. */
   marketStatus?: MarketDataStatus
-}>()
+  /** When quotes for this portfolio last arrived. */
+  quotesFetchedAt?: string | null
+  /** False until the first balance-sheet response arrives. */
+  hasLoaded?: boolean
+  /** How many holdings asked for a quote; zero means the page needs none. */
+  requested?: number
+}>(), {
+  quotesFetchedAt: null,
+  hasLoaded: false,
+  requested: 0,
+})
 
-const { snapshot, overall, isLoading, errorMessage, load } = useSourceHealth()
+const { snapshot, isLoading, errorMessage, load } = useSourceHealth()
 
 const isOpen = ref(false)
 const root = ref<HTMLElement | null>(null)
-
-const overallLabels: Record<OverallSourceState, string> = {
-  live: 'Providers live',
-  degraded: 'Providers degraded',
-  failing: 'Providers failing',
-  no_traffic: 'No provider traffic',
-  not_applicable: 'Providers n/a',
-  disabled: 'Providers disabled',
-  unconfigured: 'Providers unconfigured',
-  unavailable: 'Source status unavailable',
-}
 
 // "One provider is flaky" and "nothing is answering" are different problems.
 // Provider health is read at most every few minutes, so the balance sheet's own
 // last call is the faster signal that the service has gone away.
 const isUnreachable = computed(() => props.marketStatus === 'unreachable' || snapshot.value?.isStale === true)
 
-const chipState = computed(() => (isUnreachable.value ? 'unreachable' : overall.value))
+const chipState = computed(() => {
+  if (!props.hasLoaded) return 'unknown'
+  if (props.marketStatus === 'unreachable') return 'unreachable'
+  if (props.marketStatus === 'degraded') return 'degraded'
+  if (props.marketStatus === 'ok') return 'live'
+  return 'unknown'
+})
 
-const overallLabel = computed(() => {
-  if (isUnreachable.value) return 'Market data unreachable'
-  // Before the first read completes (SSR and hydration), say "checking"
-  // rather than claiming the status is unavailable.
-  if (snapshot.value === null && errorMessage.value === null) return 'Checking providers'
-  return overallLabels[overall.value]
+function fetchedAtLabel(value: string): string {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return formatShortDate(value)
+
+  return sgtDateKey(parsed) === sgtDateKey() ? formatClock(value) : formatShortDate(value)
+}
+
+// The chip reports what the page's own price call did. Provider health is one
+// click away in the panel below.
+const chipLabel = computed(() => {
+  if (!props.hasLoaded) return 'Checking prices'
+
+  if (props.marketStatus === 'unreachable') {
+    return props.quotesFetchedAt
+      ? `Market data unreachable · prices from ${fetchedAtLabel(props.quotesFetchedAt)}`
+      : 'Market data unreachable'
+  }
+
+  if (props.marketStatus === 'degraded') {
+    return props.quotesFetchedAt
+      ? `Some prices stale · ${fetchedAtLabel(props.quotesFetchedAt)}`
+      : 'Some prices stale'
+  }
+
+  if (props.requested === 0) return 'No holdings use live prices'
+  if (props.quotesFetchedAt) return `Prices updated ${fetchedAtLabel(props.quotesFetchedAt)}`
+  return 'Prices not fetched yet'
 })
 
 // Re-read provider health when the service goes away or comes back, rather

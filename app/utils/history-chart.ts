@@ -1,6 +1,6 @@
 import type { ValuationHistoryPoint } from '~~/shared/types/history'
 
-export const HISTORY_CHART_HEIGHT = 190
+export const HISTORY_CHART_HEIGHT = 160
 export const HISTORY_CHART_MIN_WIDTH = 320
 export const HISTORY_CHART_PADDING = { top: 14, right: 14, bottom: 24, left: 80 } as const
 

@@ -1,7 +1,6 @@
 import type { BalanceSection } from '~~/shared/types/balance-sheet'
 import {
   defaultViewPreferences,
-  type KpiCardCount,
   type PrimaryCurrency,
   type ViewDensity,
   type ViewPreferences,
@@ -42,10 +41,6 @@ export function useViewPreferences() {
     preferences.value = { ...preferences.value, primaryCurrency }
   }
 
-  function setKpiCards(kpiCards: KpiCardCount) {
-    preferences.value = { ...preferences.value, kpiCards }
-  }
-
   function setSectionVisible(section: ViewSectionKey, visible: boolean) {
     preferences.value = {
       ...preferences.value,
@@ -79,7 +74,6 @@ export function useViewPreferences() {
     hiddenSectionLabels,
     setDensity,
     setPrimaryCurrency,
-    setKpiCards,
     setSectionVisible,
     setStickyHeader,
     setStickyNameColumn,

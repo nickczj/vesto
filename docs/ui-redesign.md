@@ -18,7 +18,7 @@ Mockup (private canvas, sample figures only):
 | 1 | Foundations: fix what is broken (F1–F4) | `ui-redesign-foundations` | Committed; no PR yet |
 | 2 | Keyboard, failure states, page basics (F5–F8) | `ui-redesign-foundations` | Committed; no PR yet |
 | 3 | Ledger table (U1, U4, U5, U7) | `ui-redesign-foundations` | Committed |
-| 4 | Header and net-worth hero (U2, U3) | — | Not started |
+| 4 | Header and net-worth hero (U2, U3) | `ui-redesign-foundations` | Committed |
 | 5 | Palette, type scale, flatter surfaces | — | Not started |
 | 6 | Add/edit dialog (U6) | — | Not started |
 
@@ -204,9 +204,33 @@ How each was done:
 
 ### Slice 4 — Header and net-worth hero
 
-- [ ] Slim header: status, refresh, View, export, theme, one primary "Add".
-- [ ] Net worth headline with assets less liabilities and the FX line.
-- [ ] History beside the headline; drop the KPI cards and the FX strip.
+- [x] Slim header: status, refresh, View, export, theme, one primary "Add".
+- [x] Net worth headline with assets less liabilities and the FX line.
+- [x] History beside the headline; drop the KPI cards and the FX strip.
+
+How each was done:
+
+- **Header.** The title is "Vesto · Balance sheet". The chip now reports the
+  page's own market-data call and when prices arrived ("Prices updated 10:57",
+  "Some prices stale · 10:57", "Market data unreachable · prices from 16 Nov");
+  its panel still reports provider health. The controls are Refresh, View,
+  Export, Theme and one ink Add menu with "Add asset" and "Add liability".
+  The permanent instructional copy is gone.
+- **Hero.** Net worth is the 48px figure with an SGD/USD switch on the same
+  store as the View popover. Beneath it: "Assets … less liabilities …", the
+  other currency and the USD/SGD rate with its date, "+x since the 08:00
+  snapshot" (the latest complete history row; the date is named when it is not
+  today), and the drawdown from the all-time peak. The last two are hidden
+  when there is no history or no FX rate.
+- **History.** The card sits beside the hero and stacks under 1000px. The
+  series is read once for the API's full window (3650 days) and the
+  30/90/1y/All switch filters it client-side, so the chart range cannot change
+  the meaning of the peak or the drawdown. The stat boxes and the card's own
+  Refresh button are gone; the header Refresh reloads both the sheet and the
+  history. The backfill sentence stays.
+- **Removed.** KPI cards, the FX strip, the `kpiCards` preference and its
+  parser branch, and the two lines of header instructions. Stored preferences
+  from older builds are tolerated; an unknown `kpiCards` key is ignored.
 
 ### Slice 5 — Palette, type scale, flatter surfaces
 
@@ -245,6 +269,9 @@ Later slices change lines in the `AGENTS.md` UI contract. Each must update
 | "The existing Source/Native column toggles use the same store." | Toggles live in the View popover; the store is unchanged. | 3 |
 | "The header has one provider-status chip. It reports provider health…" | One market-data chip: the last call's outcome and when prices arrived. Its panel still reports provider health; row valuation state stays in the table. | 4 |
 | "Use modal forms for CRUD." | Unchanged; the dialog is still modal. | 6 |
+
+Slices 3 and 4 applied their rows to `AGENTS.md` in the same commits. The
+slice 6 line records that the dialog stays modal; it is not a change.
 
 Unchanged throughout: SGD headline for history, complete days only, the
 backfill sentence, per-device preferences, hidden sections filtering rows only,
@@ -296,3 +323,18 @@ draw a chart; a fresh copy has none until the snapshot sidecar has run twice.
   The browser check used cached stale quotes (vesto-go was not running), which
   is why every source shows `· stale`; that is the expected fallback, not a
   regression.
+- **2026-11-17** — Slice 4 implemented and committed. The header is one slim
+  bar (status chip, Refresh, View, Export, Theme, one ink Add menu) with no
+  instructional copy. The hero is the net-worth figure with assets less
+  liabilities, the FX line, the change since the latest complete snapshot and
+  the drawdown from the all-time peak; the history card sits beside it with the
+  30/90/1y/All switch and stacks under 1000px. KPI cards, the FX strip and the
+  `kpiCards` preference are gone. The chip now carries the market-data state
+  and price time, with provider health in its panel. Checked in the browser at
+  1440, 1024, 900 and 390px in both themes: currency switch, Add menu, View
+  popover, provider panel, hidden-section note and the range switch. Seeded
+  four synthetic rows into the `/tmp` database copy to check the chart, the
+  snapshot delta and the peak line; the real database was not touched.
+  `npm test` (104, 10 new), `npm run typecheck` and `npm run build` pass. Not
+  run: Playwright e2e. vesto-go was not running, so the page used cached stale
+  quotes, which is the expected fallback.

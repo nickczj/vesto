@@ -26,6 +26,52 @@ export function formatTimestamp(value: string | null | undefined): string {
   }).format(parsed)
 }
 
+const SGT_TIME_ZONE = 'Asia/Singapore'
+
+function parseDate(value: string | null | undefined): Date | null {
+  if (!value) return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+/** A day in SGT: `16 Nov`. Used for FX and snapshot dates. */
+export function formatShortDate(value: string | null | undefined): string {
+  const parsed = parseDate(value)
+  if (!parsed) return 'N/A'
+
+  return new Intl.DateTimeFormat('en-SG', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: SGT_TIME_ZONE,
+  }).format(parsed)
+}
+
+/** A day in SGT with the year: `16 Nov 2026`. */
+export function formatHistoryDate(value: string | null | undefined): string {
+  const parsed = parseDate(value)
+  if (!parsed) return 'N/A'
+
+  return new Intl.DateTimeFormat('en-SG', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: SGT_TIME_ZONE,
+  }).format(parsed)
+}
+
+/** A 24-hour clock time in SGT: `10:57`. */
+export function formatClock(value: string | null | undefined): string {
+  const parsed = parseDate(value)
+  if (!parsed) return 'N/A'
+
+  return new Intl.DateTimeFormat('en-SG', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: SGT_TIME_ZONE,
+  }).format(parsed)
+}
+
 /**
  * A timestamp for "when did this last happen": the time alone when it was
  * today, the date and time otherwise. Keeps the common case short.
