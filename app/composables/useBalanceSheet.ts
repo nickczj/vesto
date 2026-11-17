@@ -1,4 +1,5 @@
 import { LIVE_REFRESH_INTERVAL_MS } from '~~/shared/types/balance-sheet'
+import { toUserMessage } from '~/utils/errors'
 import type {
   AssetEntry,
   BalanceSheetResponse,
@@ -54,6 +55,11 @@ const EMPTY_SHEET: BalanceSheetResponse = {
     manualFallback: 0,
     unpriced: 0,
   },
+  marketData: {
+    status: 'unknown',
+    quotesFetchedAt: null,
+    checkedAt: null,
+  },
   warnings: [],
 }
 
@@ -84,6 +90,7 @@ function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
     category: payload.kind === 'cpf' ? `cpf:${payload.cpfBucket || 'N/A'}` : payload.kind,
     nativeCurrency: payload.currency,
     nativeAmount,
+    quantity: isInvestment ? (payload.quantity ?? null) : null,
     boughtUnitPrice,
     currentUnitPrice: isInvestment ? manualPrice : null,
     costBasisNative,
@@ -115,6 +122,7 @@ function toTempLiabilityRow(payload: LiabilityUpsertPayload): BalanceSheetRow {
     category: payload.type,
     nativeCurrency: payload.currency,
     nativeAmount: payload.outstandingAmount,
+    quantity: null,
     boughtUnitPrice: null,
     currentUnitPrice: null,
     costBasisNative: null,
@@ -164,7 +172,7 @@ export function useBalanceSheet() {
     }
     catch (error) {
       if (!silent) {
-        errorMessage.value = error instanceof Error ? error.message : String(error)
+        errorMessage.value = toUserMessage(error)
       }
       throw error
     }
@@ -193,10 +201,6 @@ export function useBalanceSheet() {
     ])
   }
 
-  function toErrorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error)
-  }
-
   async function syncAfterMutation() {
     try {
       await Promise.all([
@@ -206,11 +210,11 @@ export function useBalanceSheet() {
       ])
     }
     catch (error) {
-      errorMessage.value = `Saved changes, but local snapshot refresh failed: ${toErrorMessage(error)}`
+      errorMessage.value = `Saved, but the page could not be reloaded. ${toUserMessage(error)}`
     }
 
     void refresh('always', { silent: true }).catch((error) => {
-      errorMessage.value = `Live valuation refresh failed: ${toErrorMessage(error)}`
+      errorMessage.value = `Prices could not be refreshed. ${toUserMessage(error)}`
     })
   }
 
@@ -225,7 +229,7 @@ export function useBalanceSheet() {
       await syncAfterMutation()
     }
     catch (error) {
-      errorMessage.value = toErrorMessage(error)
+      errorMessage.value = toUserMessage(error)
       throw error
     }
     finally {
@@ -242,7 +246,7 @@ export function useBalanceSheet() {
       await syncAfterMutation()
     }
     catch (error) {
-      errorMessage.value = toErrorMessage(error)
+      errorMessage.value = toUserMessage(error)
       throw error
     }
     finally {
@@ -268,7 +272,7 @@ export function useBalanceSheet() {
         ...sheet.value,
         rows: existingRows,
       }
-      errorMessage.value = toErrorMessage(error)
+      errorMessage.value = toUserMessage(error)
       throw error
     }
     finally {
@@ -287,7 +291,7 @@ export function useBalanceSheet() {
       await syncAfterMutation()
     }
     catch (error) {
-      errorMessage.value = toErrorMessage(error)
+      errorMessage.value = toUserMessage(error)
       throw error
     }
     finally {
@@ -304,7 +308,7 @@ export function useBalanceSheet() {
       await syncAfterMutation()
     }
     catch (error) {
-      errorMessage.value = toErrorMessage(error)
+      errorMessage.value = toUserMessage(error)
       throw error
     }
     finally {
@@ -330,7 +334,7 @@ export function useBalanceSheet() {
         ...sheet.value,
         rows: existingRows,
       }
-      errorMessage.value = toErrorMessage(error)
+      errorMessage.value = toUserMessage(error)
       throw error
     }
     finally {
@@ -365,7 +369,7 @@ export function useBalanceSheet() {
 
   function refreshLiveInBackground() {
     void refresh('always', { silent: true }).catch((error) => {
-      errorMessage.value = `Live valuation refresh failed: ${toErrorMessage(error)}`
+      errorMessage.value = `Prices could not be refreshed. ${toUserMessage(error)}`
     })
   }
 
@@ -374,7 +378,7 @@ export function useBalanceSheet() {
       await refreshAll('never')
     }
     catch (error) {
-      errorMessage.value = toErrorMessage(error)
+      errorMessage.value = toUserMessage(error)
     }
     finally {
       refreshLiveInBackground()
@@ -393,10 +397,14 @@ export function useBalanceSheet() {
   })
 
   const rows = computed(() => [...pendingRows.value, ...sheet.value.rows])
+  // False until the first response arrives, so the page can say "loading"
+  // instead of describing the empty placeholder sheet.
+  const hasLoaded = computed(() => lastSuccessfulRefreshAt.value > 0)
 
   return {
     sheet,
     rows,
+    hasLoaded,
     assets,
     liabilities,
     isLoading,

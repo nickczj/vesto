@@ -18,6 +18,11 @@ export const refreshModeSchema = z.enum(REFRESH_MODES)
 export const balanceSectionSchema = z.enum(BALANCE_SECTIONS)
 export const historyDaysSchema = z.coerce.number().int().min(1).max(3650).default(365)
 
+export const resolveInstrumentSchema = z.object({
+  symbol: z.string().trim().min(1).max(30),
+  market: z.string().trim().max(10).optional(),
+})
+
 export const assetCreateSchema = z.object({
   kind: assetKindSchema,
   name: z.string().trim().min(1),

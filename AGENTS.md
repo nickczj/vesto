@@ -50,6 +50,10 @@
 - `GET /api/sources?refresh=stale|always` — BFF proxy for vesto-go `/v1/sources`.
   It passes the markets the portfolio holds so out-of-scope providers report
   `not_applicable` rather than looking dead. The browser never calls vesto-go.
+- `GET /api/instruments/resolve?symbol=&market=` — BFF proxy for vesto-go
+  `/v1/quotes/latest`, used by the add/edit dialog to resolve a ticker before
+  saving. It returns a status and a plain sentence; a provider outage does not
+  block a save.
 - `GET /api/history?days=365` — daily valuation series plus read-time drawdown.
 - `POST /api/snapshots` — authenticated, idempotent capture for the current SGT
   date. `?force=always` overwrites a complete day; normal retries may only
@@ -66,21 +70,24 @@
 - Auto-refresh every 45s only while document is visible.
 - Manual refresh is always available.
 - Use modal forms for CRUD.
-- The header has one provider-status chip. It reports provider health; row
-  valuation state stays in the table. The chip is diagnostic, not a dashboard.
+- The header has one market-data chip. It reports how the page's last call to
+  vesto-go went and when prices last arrived; its panel reports provider
+  health. Row valuation state stays in the table. The chip is diagnostic, not
+  a dashboard.
 - The Source column shows `provider · valuation-state` when a quote supplied
   the price (`yahoo_scrape · live`), and just the state otherwise.
-- The net-worth history card sits above the table. It plots complete days only,
-  shows SGD as the headline, and reports drawdown from the running peak at read
-  time. Incomplete days are counted but excluded from the chart and drawdown.
+- The net-worth history card sits beside the net-worth headline. It plots
+  complete days only, shows SGD as the headline, and reports drawdown from the
+  running peak at read time. Incomplete days are counted but excluded from the
+  chart and drawdown.
 - Say that history starts when the series starts and cannot be backfilled.
-- View preferences live in the header `View` popover: density, KPI card count,
-  primary currency, section visibility, sticky header and sticky name column.
-  The existing Source/Native column toggles use the same store.
+- View preferences live in the header `View` popover: density, primary
+  currency, section visibility, columns (Source/Native), sticky header and
+  sticky name column. The column toggles use the same store.
 - Preferences are per device: `localStorage` is the source of truth, mirrored to
   a small cookie so SSR renders the same first paint. Never move them to
   `app_settings`; there is one Basic-auth identity and no user accounts.
-- Section visibility only filters table rows. The KPI cards and table totals
+- Section visibility only filters table rows. The headline and table totals
   stay full-portfolio, and the page must say so when a section is hidden.
 - Do not expose the 45s poll interval as a free-form setting. It is also the
   server cache TTL.

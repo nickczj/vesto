@@ -1,6 +1,7 @@
 import type { SourceHealthSnapshot } from '~~/shared/types/source-health'
 import { listAssets } from '~~/server/services/repository'
 import { fetchSourceHealth } from '~~/server/utils/vesto-go'
+import { classifyRequestFailure, describeRequestFailure } from '~~/shared/utils/request-failure'
 
 const CACHE_TTL_MS = 60_000
 
@@ -56,11 +57,13 @@ export default defineEventHandler(async (event) => {
       return { ...cache.snapshot, isStale: true }
     }
 
-    const message = error instanceof Error ? error.message : String(error)
+    // The raw error names an internal address; keep it in the log only.
+    console.warn('[vesto] source status fetch failed:', error instanceof Error ? error.message : String(error))
+    const reason = describeRequestFailure(classifyRequestFailure(error), 'the market-data service')
     throw createError({
       statusCode: 502,
       statusMessage: 'Source status unavailable',
-      message,
+      message: `Provider status is unavailable: ${reason}.`,
     })
   }
 })

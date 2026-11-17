@@ -13,7 +13,6 @@ describe('view preferences', () => {
     expect(parsed).toMatchObject({
       density: 'comfortable',
       primaryCurrency: 'SGD',
-      kpiCards: 4,
       stickyHeader: true,
       stickyNameColumn: false,
       showSource: false,
@@ -33,7 +32,6 @@ describe('view preferences', () => {
     const parsed = parseViewPreferences(JSON.stringify({
       density: 'compact',
       primaryCurrency: 'USD',
-      kpiCards: 2,
       sections: { cpf: false, cashSavings: true, liabilities: false },
       stickyHeader: false,
       stickyNameColumn: true,
@@ -44,7 +42,6 @@ describe('view preferences', () => {
     expect(parsed).toEqual({
       density: 'compact',
       primaryCurrency: 'USD',
-      kpiCards: 2,
       sections: { cpf: false, cashSavings: true, liabilities: false },
       stickyHeader: false,
       stickyNameColumn: true,
@@ -64,11 +61,20 @@ describe('view preferences', () => {
 
     expect(invalid.density).toBe('comfortable')
     expect(invalid.primaryCurrency).toBe('SGD')
-    expect(invalid.kpiCards).toBe(4)
     expect(invalid.sections).toEqual({ cpf: true, cashSavings: true, liabilities: true })
     expect(invalid.stickyHeader).toBe(true)
     expect(invalid.stickyNameColumn).toBe(false)
     expect(invalid.showSource).toBe(false)
+  })
+
+  it('ignores the KPI card setting stored by an older build', () => {
+    const parsed = parseViewPreferences(JSON.stringify({
+      ...DEFAULT_VIEW_PREFERENCES,
+      kpiCards: 2,
+    }))
+
+    expect(parsed).not.toHaveProperty('kpiCards')
+    expect(parsed).toEqual(DEFAULT_VIEW_PREFERENCES)
   })
 
   it('round-trips a serialized preference object', () => {

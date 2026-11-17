@@ -1,4 +1,5 @@
 import type { ValuationHistoryResponse } from '~~/shared/types/history'
+import { toUserMessage } from '~/utils/errors'
 
 export function useValuationHistory() {
   const history = useState<ValuationHistoryResponse | null>('valuation-history:snapshot', () => null)
@@ -11,10 +12,15 @@ export function useValuationHistory() {
     isLoading.value = true
     errorMessage.value = null
     try {
-      history.value = await $fetch<ValuationHistoryResponse>('/api/history')
+      // The card filters this series client-side for its range switch, and the
+      // headline's drawdown needs the whole series, so read the full API
+      // window once. 3650 days is the endpoint's maximum.
+      history.value = await $fetch<ValuationHistoryResponse>('/api/history', {
+        query: { days: 3650 },
+      })
     }
     catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : String(error)
+      errorMessage.value = toUserMessage(error)
     }
     finally {
       isLoading.value = false

@@ -6,8 +6,6 @@ export type ViewDensity = (typeof VIEW_DENSITIES)[number]
 export const PRIMARY_CURRENCIES = ['SGD', 'USD'] as const
 export type PrimaryCurrency = (typeof PRIMARY_CURRENCIES)[number]
 
-export type KpiCardCount = 2 | 4
-
 export interface ViewSectionVisibility {
   cpf: boolean
   cashSavings: boolean
@@ -17,7 +15,6 @@ export interface ViewSectionVisibility {
 export interface ViewPreferences {
   density: ViewDensity
   primaryCurrency: PrimaryCurrency
-  kpiCards: KpiCardCount
   sections: ViewSectionVisibility
   stickyHeader: boolean
   stickyNameColumn: boolean
@@ -28,7 +25,6 @@ export interface ViewPreferences {
 export const DEFAULT_VIEW_PREFERENCES: ViewPreferences = {
   density: 'comfortable',
   primaryCurrency: 'SGD',
-  kpiCards: 4,
   sections: {
     cpf: true,
     cashSavings: true,
@@ -76,7 +72,6 @@ export function parseViewPreferences(raw: string | null): ViewPreferences {
   return {
     density: parsed.density === 'compact' ? 'compact' : 'comfortable',
     primaryCurrency: parsed.primaryCurrency === 'USD' ? 'USD' : 'SGD',
-    kpiCards: parsed.kpiCards === 2 ? 2 : 4,
     sections: {
       cpf: sections.cpf !== false,
       cashSavings: sections.cashSavings !== false,

@@ -9,6 +9,7 @@ import {
 
 const FX_REQUEST_TIMEOUT_MS = 8_000
 const QUOTE_BATCH_REQUEST_TIMEOUT_MS = 12_000
+const SINGLE_QUOTE_REQUEST_TIMEOUT_MS = 8_000
 const SOURCE_HEALTH_REQUEST_TIMEOUT_MS = 5_000
 
 interface LatestQuoteBatchRequestItem {
@@ -40,6 +41,30 @@ interface LatestQuoteBatchResult {
 
 interface LatestQuoteBatchResponse {
   results: LatestQuoteBatchResult[]
+}
+
+interface LatestQuoteWireResponse {
+  symbol: string
+  market: string
+  instrument_type?: string
+  currency: string
+  price: number
+  as_of: string
+  fetched_at: string
+  source: string
+  is_stale: boolean
+}
+
+export interface InstrumentQuoteSnapshot {
+  symbol: string
+  market: string | null
+  instrumentType: string | null
+  currency: string
+  price: number
+  asOf: string
+  fetchedAt: string
+  source: string
+  isStale: boolean
 }
 
 interface FxRateResponse {
@@ -139,6 +164,41 @@ function getBaseUrl(): string {
   const config = useRuntimeConfig()
   const baseUrl = String(config.vestoGoBaseUrl || '').trim() || 'http://localhost:8080'
   return normalizeVestoGoBaseUrl(baseUrl, existsSync('/.dockerenv'))
+}
+
+/**
+ * Fetch one latest quote. Used by the add/edit dialog to resolve a ticker
+ * before saving; a batch of one would also work but this returns the
+ * instrument's resolved market directly.
+ */
+export async function fetchLatestQuote(
+  symbol: string,
+  market?: string | null,
+): Promise<InstrumentQuoteSnapshot> {
+  const normalizedSymbol = symbol.trim().toUpperCase()
+  const normalizedMarket = market?.trim().toUpperCase() || undefined
+
+  const payload = await $fetch<LatestQuoteWireResponse>('/v1/quotes/latest', {
+    baseURL: getBaseUrl(),
+    query: {
+      symbol: normalizedSymbol,
+      market: normalizedMarket,
+    },
+    retry: 0,
+    timeout: SINGLE_QUOTE_REQUEST_TIMEOUT_MS,
+  })
+
+  return {
+    symbol: payload.symbol,
+    market: payload.market || null,
+    instrumentType: payload.instrument_type || null,
+    currency: payload.currency,
+    price: Number(payload.price),
+    asOf: payload.as_of,
+    fetchedAt: payload.fetched_at,
+    source: payload.source,
+    isStale: Boolean(payload.is_stale),
+  }
 }
 
 export async function fetchQuoteBatch(items: QuoteLookupItem[]): Promise<QuoteBatchFetchResult> {

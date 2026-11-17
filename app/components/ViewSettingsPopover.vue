@@ -3,7 +3,8 @@
     <UButton
       size="xs"
       color="neutral"
-      variant="soft"
+      variant="ghost"
+      class="header-control"
       :aria-expanded="isOpen"
       aria-haspopup="true"
       @click="toggle"
@@ -30,30 +31,6 @@
             @click="setDensity(option.value)"
           >
             {{ option.label }}
-          </button>
-        </div>
-      </div>
-
-      <div class="view-group">
-        <span class="view-group-label">KPI cards</span>
-        <div class="segmented" role="group" aria-label="KPI cards">
-          <button
-            type="button"
-            class="segmented-option"
-            :class="{ active: preferences.kpiCards === 4 }"
-            :aria-pressed="preferences.kpiCards === 4"
-            @click="setKpiCards(4)"
-          >
-            4 cards
-          </button>
-          <button
-            type="button"
-            class="segmented-option"
-            :class="{ active: preferences.kpiCards === 2 }"
-            :aria-pressed="preferences.kpiCards === 2"
-            @click="setKpiCards(2)"
-          >
-            2 cards
           </button>
         </div>
       </div>
@@ -98,7 +75,7 @@
             :checked="preferences.sections.cashSavings"
             @change="onSectionChange('cashSavings', $event)"
           >
-          <span>Cash / Savings</span>
+          <span>Cash and savings</span>
         </label>
         <label class="view-toggle">
           <input
@@ -109,7 +86,30 @@
           <span>Liabilities</span>
         </label>
         <p class="view-hint muted">
-          Investments always stay visible. Hidden sections are removed from the table; the KPIs and totals still cover the full portfolio.
+          Investments always stay visible. Hidden sections are removed from the table; the headline and totals still cover the full portfolio.
+        </p>
+      </div>
+
+      <div class="view-group">
+        <span class="view-group-label">Columns</span>
+        <label class="view-toggle">
+          <input
+            type="checkbox"
+            :checked="preferences.showSource"
+            @change="onShowSourceChange"
+          >
+          <span>Source</span>
+        </label>
+        <label class="view-toggle">
+          <input
+            type="checkbox"
+            :checked="preferences.showNative"
+            @change="onShowNativeChange"
+          >
+          <span>Native value</span>
+        </label>
+        <p class="view-hint muted">
+          Source shows the provider and valuation state. Native shows each row's own currency.
         </p>
       </div>
 
@@ -149,10 +149,11 @@ const {
   preferences,
   setDensity,
   setPrimaryCurrency,
-  setKpiCards,
   setSectionVisible,
   setStickyHeader,
   setStickyNameColumn,
+  setShowSource,
+  setShowNative,
   resetPreferences,
 } = useViewPreferences()
 
@@ -182,6 +183,14 @@ function onStickyHeaderChange(event: Event) {
 
 function onStickyNameColumnChange(event: Event) {
   setStickyNameColumn(checked(event))
+}
+
+function onShowSourceChange(event: Event) {
+  setShowSource(checked(event))
+}
+
+function onShowNativeChange(event: Event) {
+  setShowNative(checked(event))
 }
 
 function onDocumentClick(event: MouseEvent) {

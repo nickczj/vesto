@@ -85,6 +85,8 @@ export interface BalanceSheetRow {
   category: string
   nativeCurrency: CurrencyCode
   nativeAmount: number
+  /** Units held, for investments that have one. Null for every other row. */
+  quantity: number | null
   boughtUnitPrice: number | null
   currentUnitPrice: number | null
   costBasisNative: number | null
@@ -123,7 +125,22 @@ export interface BalanceSheetTotals {
   netWorth: AmountPair
 }
 
+/**
+ * How the last attempt to reach vesto-go went. `unreachable` means nothing
+ * answered; `degraded` means it answered but some of it failed.
+ */
+export type MarketDataStatus = 'ok' | 'degraded' | 'unreachable' | 'unknown'
+
+export interface MarketDataState {
+  status: MarketDataStatus
+  /** When quotes for this portfolio last arrived. Null when none ever have. */
+  quotesFetchedAt: string | null
+  /** When the most recent attempt was made. Null before the first one. */
+  checkedAt: string | null
+}
+
 export interface BalanceSheetResponse {
+  /** When this response was built. Not when prices were fetched: see `marketData`. */
   generatedAt: string
   refreshMode: RefreshMode
   rows: BalanceSheetRow[]
@@ -136,5 +153,6 @@ export interface BalanceSheetResponse {
     manualFallback: number
     unpriced: number
   }
+  marketData: MarketDataState
   warnings: string[]
 }

@@ -1,49 +1,71 @@
 <template>
   <main :class="['page-shell', `density-${preferences.density}`]">
-    <section class="page-header">
-      <div class="header-copy">
-        <h1>Vesto v2 Balance Sheet</h1>
-        <p class="header-description">Track assets, CPF, and liabilities in one table with USD/SGD net worth.</p>
-        <p class="header-meta muted">
-          <span>Auto-refresh runs every 45 seconds while the tab is visible.</span>
-          <span aria-hidden="true">•</span>
-          <span>Last snapshot: {{ formatTimestamp(sheet.generatedAt) }}</span>
-          <template v-if="sheet.quoteSummary.unpriced > 0">
-            <span aria-hidden="true">•</span>
-            <span class="warning">{{ sheet.quoteSummary.unpriced }} unpriced</span>
-          </template>
-        </p>
-      </div>
+    <header class="page-header">
+      <h1 class="page-title">
+        Vesto <span class="title-divider" aria-hidden="true">·</span> Balance sheet
+      </h1>
 
       <div class="header-actions">
-        <SourceStatusChip />
-        <UButton size="xs" color="neutral" variant="soft" @click="onToggleTheme">Toggle Theme</UButton>
+        <SourceStatusChip
+          :market-status="sheet.marketData.status"
+          :quotes-fetched-at="sheet.marketData.quotesFetchedAt"
+          :has-loaded="hasLoaded"
+          :requested="sheet.quoteSummary.requested"
+        />
+        <UButton size="xs" color="neutral" variant="ghost" class="header-control" :loading="isLoading" @click="onRefresh">
+          Refresh
+        </UButton>
         <ViewSettingsPopover />
-        <UButton size="xs" color="neutral" variant="soft" :loading="isExporting" @click="onExportExcel">Export Excel</UButton>
-        <UButton size="xs" color="neutral" variant="soft" :loading="isLoading" @click="onRefresh">Refresh Now</UButton>
-        <UButton size="xs" @click="openCreateAsset">Add Asset</UButton>
-        <UButton size="xs" color="warning" @click="openCreateLiability">Add Liability</UButton>
+        <UButton size="xs" color="neutral" variant="ghost" class="header-control" :loading="isExporting" title="Export to Excel" @click="onExportExcel">
+          Export
+        </UButton>
+        <UButton size="xs" color="neutral" variant="ghost" class="header-control" @click="onToggleTheme">
+          Theme
+        </UButton>
+        <UDropdownMenu :items="addItems" :content="{ align: 'end' }">
+          <UButton size="xs" class="primary-action">
+            Add <span class="button-caret" aria-hidden="true">▾</span>
+          </UButton>
+        </UDropdownMenu>
       </div>
-    </section>
+    </header>
 
-    <section class="kpi-grid" :class="{ 'is-two-up': preferences.kpiCards === 2 }">
-      <article v-for="card in kpiCards" :key="card.label" class="kpi-card">
-        <h2>{{ card.label }}</h2>
-        <p>{{ card.value }}</p>
-      </article>
-    </section>
+    <section class="balance-hero">
+      <div class="hero-copy">
+        <div class="hero-label">
+          <h2>Net worth</h2>
+          <div class="segmented hero-currency" role="group" aria-label="Primary currency">
+            <button
+              v-for="option in currencyOptions"
+              :key="option"
+              type="button"
+              class="segmented-option"
+              :class="{ active: preferences.primaryCurrency === option }"
+              :aria-pressed="preferences.primaryCurrency === option"
+              @click="setPrimaryCurrency(option)"
+            >
+              {{ option }}
+            </button>
+          </div>
+        </div>
 
-    <section class="fx-strip" v-if="sheet.fx">
-      <span>USD/SGD: {{ sheet.fx.usdToSgd.toFixed(4) }}</span>
-      <span>SGD/USD: {{ sheet.fx.sgdToUsd.toFixed(4) }}</span>
-      <span>FX as-of: {{ sheet.fx.asOf }}</span>
-      <span>FX source: {{ sheet.fx.source }}</span>
-      <span v-if="sheet.fx.isStale" class="warning">FX snapshot is stale</span>
-    </section>
+        <p class="hero-figure">{{ headline }}</p>
+        <p class="hero-breakdown">
+          Assets {{ assetsText }} less liabilities {{ liabilitiesText }}
+        </p>
+        <p class="hero-fx" :class="{ warning: fxUnavailable }">{{ fxLine }}</p>
 
-    <section v-if="fxUnavailable" class="warning-banner">
-      <strong>FX rate unavailable.</strong>
-      USD/SGD totals are hidden until a USD/SGD rate can be fetched. Native values are still shown.
+        <div v-if="snapshotDelta || drawdownDelta" class="hero-deltas">
+          <p v-if="snapshotDelta" class="hero-delta" :class="snapshotDelta.tone">{{ snapshotDelta.text }}</p>
+          <p v-if="drawdownDelta" class="hero-delta" :class="drawdownDelta.tone">{{ drawdownDelta.text }}</p>
+        </div>
+      </div>
+
+      <ValuationHistoryCard
+        :history="history"
+        :loading="historyLoading"
+        :error="historyError"
+      />
     </section>
 
     <section v-if="errorMessage" class="error-banner">
@@ -57,49 +79,51 @@
       </ul>
     </section>
 
-    <ValuationHistoryCard
-      :history="history"
-      :loading="historyLoading"
-      :error="historyError"
-      @refresh="loadHistory"
-    />
-
     <p v-if="hiddenSectionLabels.length > 0" class="table-note muted">
-      Showing {{ visibleSections.length }} of 4 sections. Table totals include the hidden {{ hiddenSectionLabels.join(' and ') }}.
+      Showing {{ visibleSections.length }} of 4 sections. The headline and table totals include the hidden {{ hiddenSectionLabels.join(' and ') }}.
     </p>
 
     <BalanceSheetTable
       :rows="tableRows"
       :totals="sheet.totals"
       :loading="isLoading"
-      @edit-asset="openEditAsset"
-      @delete-asset="onDeleteAsset"
-      @edit-liability="openEditLiability"
-      @delete-liability="onDeleteLiability"
+      @edit-asset="onEditAssetRow"
+      @delete-asset="onDeleteAssetRow"
+      @edit-liability="onEditLiabilityRow"
+      @delete-liability="onDeleteLiabilityRow"
     />
 
     <AssetFormModal
       v-model:open="assetModalOpen"
       :initial="activeAsset"
+      :submitting="assetSubmitting"
+      :error="assetFormError"
       @submit="onSubmitAsset"
     />
 
     <LiabilityFormModal
       v-model:open="liabilityModalOpen"
       :initial="activeLiability"
+      :submitting="liabilitySubmitting"
+      :error="liabilityFormError"
       @submit="onSubmitLiability"
     />
   </main>
 </template>
 
 <script setup lang="ts">
-import type { AssetEntry, LiabilityEntry } from '~~/shared/types/balance-sheet'
+import type { AssetEntry, BalanceSheetRow, LiabilityEntry } from '~~/shared/types/balance-sheet'
+import { toUserMessage } from '~/utils/errors'
 import { exportBalanceSheetToExcel } from '~/utils/excel-export'
-import { formatCurrency, formatTimestamp } from '~/utils/formatters'
+import { formatCurrency, formatShortDate } from '~/utils/formatters'
+import { peakHistoryPoint, sgtDateKey } from '~/utils/history-range'
+import { formatLedgerAmount, formatLedgerPercent, formatLedgerValue } from '~/utils/ledger'
+import type { PrimaryCurrency } from '~/utils/view-preferences'
 
 const {
   sheet,
   rows: allRows,
+  hasLoaded,
   assets,
   liabilities,
   isLoading,
@@ -122,50 +146,110 @@ const {
   preferences,
   visibleSections,
   hiddenSectionLabels,
+  setPrimaryCurrency,
 } = useViewPreferences()
 const { toggleTheme } = useThemeMode()
 
+const currencyOptions: PrimaryCurrency[] = ['SGD', 'USD']
+
 const tableRows = computed(() => allRows.value.filter(row => visibleSections.value.includes(row.section)))
+const fxUnavailable = computed(() => sheet.value.fx === null)
 
-interface KpiCardView {
-  label: string
-  value: string
-}
-
-function amountFor(pair: { usd: number, sgd: number }, currency: 'USD' | 'SGD'): number {
+function amountFor(pair: { usd: number, sgd: number }, currency: PrimaryCurrency): number {
   return currency === 'USD' ? pair.usd : pair.sgd
 }
 
-const kpiCards = computed<KpiCardView[]>(() => {
-  const primary = preferences.value.primaryCurrency
-  const secondary = primary === 'SGD' ? 'USD' : 'SGD'
-  const totals = sheet.value.totals
+function displayMoney(value: number, currency: PrimaryCurrency): string {
+  if (fxUnavailable.value) return '—'
+  return formatCurrency(value, currency)
+}
 
-  const cards: KpiCardView[] = [
-    {
-      label: `Net Worth (${primary})`,
-      value: displayMoney(amountFor(totals.netWorth, primary), primary),
-    },
-    {
-      label: `Net Worth (${secondary})`,
-      value: displayMoney(amountFor(totals.netWorth, secondary), secondary),
-    },
-    {
-      label: `Total Assets (${primary})`,
-      value: displayMoney(amountFor(totals.totalAssets, primary), primary),
-    },
-    {
-      label: `Total Liabilities (${primary})`,
-      value: displayMoney(amountFor(totals.totalLiabilities, primary), primary),
-    },
-  ]
+function displayLedgerValue(value: number): string {
+  if (fxUnavailable.value) return '—'
+  return formatLedgerValue(value) ?? '—'
+}
 
-  if (preferences.value.kpiCards === 2) {
-    return [cards[0]!, cards[2]!]
+const headline = computed(
+  () => displayMoney(amountFor(sheet.value.totals.netWorth, preferences.value.primaryCurrency), preferences.value.primaryCurrency),
+)
+
+const assetsText = computed(() => displayLedgerValue(amountFor(sheet.value.totals.totalAssets, preferences.value.primaryCurrency)))
+const liabilitiesText = computed(() => displayLedgerValue(amountFor(sheet.value.totals.totalLiabilities, preferences.value.primaryCurrency)))
+
+const secondaryCurrency = computed<PrimaryCurrency>(
+  () => (preferences.value.primaryCurrency === 'SGD' ? 'USD' : 'SGD'),
+)
+
+const fxLine = computed(() => {
+  const fx = sheet.value.fx
+  if (!fx) return 'USD/SGD rate unavailable. Totals are hidden until a rate can be fetched.'
+
+  const secondaryNetWorth = amountFor(sheet.value.totals.netWorth, secondaryCurrency.value)
+  const rate = fx.usdToSgd.toFixed(4)
+  const stale = fx.isStale ? ' (last known)' : ''
+
+  return `${formatCurrency(secondaryNetWorth, secondaryCurrency.value)} at ${rate} SGD per USD, rate from ${formatShortDate(fx.asOf)}${stale}.`
+})
+
+// Current net worth minus the latest complete snapshot. The date is named
+// whenever that snapshot is not today's, so an old baseline is not passed off
+// as the 08:00 one.
+const snapshotDelta = computed(() => {
+  if (fxUnavailable.value) return null
+
+  const latest = history.value?.latest
+  if (!latest) return null
+
+  const currency = preferences.value.primaryCurrency
+  const previous = currency === 'SGD' ? latest.netWorthSgd : latest.netWorthUsd
+  const delta = amountFor(sheet.value.totals.netWorth, currency) - previous
+  const when = latest.asOfDate === sgtDateKey() ? 'the 08:00 snapshot' : `${formatShortDate(latest.asOfDate)} snapshot`
+
+  return {
+    text: `${formatLedgerAmount(delta, { signed: true }) ?? '—'} since ${when}`,
+    tone: delta > 0 ? 'pnl-profit' : delta < 0 ? 'pnl-loss' : 'pnl-flat',
+  }
+})
+
+const peakPoint = computed(() => {
+  const points = history.value?.points
+  if (!points) return null
+  return peakHistoryPoint(points, preferences.value.primaryCurrency)
+})
+
+const drawdownDelta = computed(() => {
+  if (fxUnavailable.value) return null
+
+  const peak = peakPoint.value
+  if (!peak) return null
+
+  const currency = preferences.value.primaryCurrency
+  const peakValue = currency === 'SGD' ? peak.netWorthSgd : peak.netWorthUsd
+  if (peakValue <= 0) return null
+
+  const current = amountFor(sheet.value.totals.netWorth, currency)
+  const ratio = current / peakValue - 1
+  const date = formatShortDate(peak.asOfDate)
+
+  if (Math.abs(ratio) < 0.00005) return { text: 'At the peak', tone: 'pnl-flat' }
+
+  if (ratio > 0) {
+    return {
+      text: `${formatLedgerPercent(ratio) ?? ''} above the peak on ${date}`,
+      tone: 'pnl-profit',
+    }
   }
 
-  return cards
+  return {
+    text: `${formatLedgerPercent(ratio) ?? ''} from the peak on ${date}`,
+    tone: 'pnl-loss',
+  }
 })
+
+const addItems = [
+  { label: 'Add asset', onSelect: () => openCreateAsset() },
+  { label: 'Add liability', onSelect: () => openCreateLiability() },
+]
 
 onMounted(() => {
   void loadHistory()
@@ -176,12 +260,10 @@ const liabilityModalOpen = ref(false)
 const editingAssetId = ref<number | null>(null)
 const editingLiabilityId = ref<number | null>(null)
 const isExporting = ref(false)
-const fxUnavailable = computed(() => sheet.value.fx === null)
-
-function displayMoney(value: number, currency: 'USD' | 'SGD'): string {
-  if (fxUnavailable.value) return '—'
-  return formatCurrency(value, currency)
-}
+const assetSubmitting = ref(false)
+const liabilitySubmitting = ref(false)
+const assetFormError = ref<string | null>(null)
+const liabilityFormError = ref<string | null>(null)
 
 const activeAsset = computed<AssetEntry | null>(() => {
   if (!editingAssetId.value) return null
@@ -195,22 +277,38 @@ const activeLiability = computed<LiabilityEntry | null>(() => {
 
 function openCreateAsset() {
   editingAssetId.value = null
+  assetFormError.value = null
+  assetSubmitting.value = false
   assetModalOpen.value = true
 }
 
 function openEditAsset(id: number) {
   editingAssetId.value = id
+  assetFormError.value = null
+  assetSubmitting.value = false
   assetModalOpen.value = true
 }
 
 function openCreateLiability() {
   editingLiabilityId.value = null
+  liabilityFormError.value = null
+  liabilitySubmitting.value = false
   liabilityModalOpen.value = true
 }
 
 function openEditLiability(id: number) {
   editingLiabilityId.value = id
+  liabilityFormError.value = null
+  liabilitySubmitting.value = false
   liabilityModalOpen.value = true
+}
+
+function onEditAssetRow(row: BalanceSheetRow) {
+  openEditAsset(row.entityId)
+}
+
+function onEditLiabilityRow(row: BalanceSheetRow) {
+  openEditLiability(row.entityId)
 }
 
 async function onSubmitAsset(payload: {
@@ -227,14 +325,25 @@ async function onSubmitAsset(payload: {
   valuationMode: AssetEntry['valuationMode']
   notes?: string | null
 }) {
-  if (editingAssetId.value) {
-    await updateAsset(editingAssetId.value, payload)
-  }
-  else {
-    await createAsset(payload)
-  }
+  assetSubmitting.value = true
+  assetFormError.value = null
 
-  assetModalOpen.value = false
+  try {
+    if (editingAssetId.value) {
+      await updateAsset(editingAssetId.value, payload)
+    }
+    else {
+      await createAsset(payload)
+    }
+
+    assetModalOpen.value = false
+  }
+  catch (error) {
+    assetFormError.value = toUserMessage(error)
+  }
+  finally {
+    assetSubmitting.value = false
+  }
 }
 
 async function onSubmitLiability(payload: {
@@ -244,28 +353,51 @@ async function onSubmitLiability(payload: {
   outstandingAmount: number
   notes?: string | null
 }) {
-  if (editingLiabilityId.value) {
-    await updateLiability(editingLiabilityId.value, payload)
-  }
-  else {
-    await createLiability(payload)
-  }
+  liabilitySubmitting.value = true
+  liabilityFormError.value = null
 
-  liabilityModalOpen.value = false
+  try {
+    if (editingLiabilityId.value) {
+      await updateLiability(editingLiabilityId.value, payload)
+    }
+    else {
+      await createLiability(payload)
+    }
+
+    liabilityModalOpen.value = false
+  }
+  catch (error) {
+    liabilityFormError.value = toUserMessage(error)
+  }
+  finally {
+    liabilitySubmitting.value = false
+  }
 }
 
-async function onDeleteAsset(id: number) {
-  if (!window.confirm('Delete this asset?')) return
-  await removeAsset(id)
+async function onDeleteAssetRow(row: BalanceSheetRow) {
+  if (!window.confirm(`Delete "${row.name}"? This cannot be undone.`)) return
+
+  try {
+    await removeAsset(row.entityId)
+  }
+  catch {
+    // removeAsset already put a plain sentence in the page's error banner.
+  }
 }
 
-async function onDeleteLiability(id: number) {
-  if (!window.confirm('Delete this liability?')) return
-  await removeLiability(id)
+async function onDeleteLiabilityRow(row: BalanceSheetRow) {
+  if (!window.confirm(`Delete "${row.name}"? This cannot be undone.`)) return
+
+  try {
+    await removeLiability(row.entityId)
+  }
+  catch {
+    // removeLiability already put a plain sentence in the page's error banner.
+  }
 }
 
 async function onRefresh() {
-  await refresh('always')
+  await Promise.allSettled([refresh('always'), loadHistory()])
 }
 
 function onToggleTheme() {

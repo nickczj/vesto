@@ -3,6 +3,7 @@ import {
   type OverallSourceState,
   type SourceHealthSnapshot,
 } from '~~/shared/types/source-health'
+import { toUserMessage } from '~/utils/errors'
 
 const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60_000
 
@@ -35,7 +36,7 @@ export function useSourceHealth() {
       loadedAt.value = Date.now()
     }
     catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : String(error)
+      errorMessage.value = toUserMessage(error)
     }
     finally {
       isLoading.value = false
