@@ -25,8 +25,8 @@ import {
 } from '~~/server/services/snapshot-cache'
 import {
   buildQuoteCacheKey,
+  fetchFxRatesToSgd,
   fetchQuoteBatch,
-  fetchUsdToSgdFx,
   type QuoteBatchFetchResult,
   type QuoteLookupItem,
 } from '~~/server/utils/vesto-go'
@@ -216,28 +216,124 @@ function backfillResolvedAssetMarkets(
   }
 }
 
-async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): Promise<FxSnapshot | null> {
+function pushWarningOnce(warnings: string[], message: string): void {
+  if (!warnings.includes(message)) {
+    warnings.push(message)
+  }
+}
+
+function hasRate(snapshot: FxSnapshot | null, currency: CurrencyCode): boolean {
+  const rate = snapshot?.sgdPerUnit[currency]
+  return typeof rate === 'number' && Number.isFinite(rate) && rate > 0
+}
+
+function missingRates(snapshot: FxSnapshot | null, needed: CurrencyCode[]): CurrencyCode[] {
+  return needed.filter(currency => !hasRate(snapshot, currency))
+}
+
+/**
+ * Resolve one rate per currency the sheet actually holds, plus USD for the
+ * totals. The request is a single batch; a failed optional pair only unprices
+ * the rows in that currency, while a failed USD/SGD pair leaves the whole sheet
+ * unvalued because both totals currencies depend on it.
+ */
+async function resolveFxSnapshot(
+  refreshMode: RefreshMode,
+  neededCurrencies: CurrencyCode[],
+  warnings: string[],
+): Promise<FxSnapshot | null> {
   const now = Date.now()
+  // SGD is the unit every rate is expressed in, so it is never fetched.
+  const needed = [...new Set<CurrencyCode>(['USD', ...neededCurrencies])]
+    .filter(currency => currency !== 'SGD')
+  const cachedEntry = fxCache
+  const cached = cachedEntry?.snapshot ?? null
 
   if (refreshMode === 'never') {
-    if (fxCache) return fxCache.snapshot
+    if (cached) {
+      for (const currency of missingRates(cached, needed)) {
+        if (currency === 'USD') continue
+        pushWarningOnce(warnings, `No ${currency}/SGD rate has been stored yet: ${currency} holdings are unpriced.`)
+      }
+      return cached
+    }
 
-    warnings.push('FX rate unavailable: no cached USD/SGD rate has been stored yet.')
+    warnings.push('FX rate unavailable: no cached FX rates have been stored yet.')
     return null
   }
 
-  if (refreshMode === 'stale' && fxCache && isFresh(fxCache.cachedAt, now)) {
-    return fxCache.snapshot
+  if (
+    refreshMode === 'stale'
+    && cachedEntry
+    && isFresh(cachedEntry.cachedAt, now)
+    && missingRates(cached, needed).length === 0
+  ) {
+    return cached
   }
 
   try {
     if (!inflightFxSnapshot) {
       inflightFxSnapshot = (async () => {
-        const freshSnapshot = await fetchUsdToSgdFx()
+        const fetched = await fetchFxRatesToSgd(needed)
+        const rates: Partial<Record<CurrencyCode, number>> = { SGD: 1 }
+        const fromCache: CurrencyCode[] = []
+        const missing: CurrencyCode[] = []
+
+        for (const currency of needed) {
+          const freshRate = fetched.sgdPerUnit[currency]
+          if (typeof freshRate === 'number' && Number.isFinite(freshRate) && freshRate > 0) {
+            rates[currency] = roundRate(freshRate)
+            continue
+          }
+
+          if (hasRate(cached, currency)) {
+            const cachedRate = cached?.sgdPerUnit[currency]
+            if (typeof cachedRate === 'number') {
+              rates[currency] = cachedRate
+              fromCache.push(currency)
+              continue
+            }
+          }
+
+          missing.push(currency)
+        }
+
+        // Both totals currencies depend on this pair. Without it nothing can be
+        // valued, even if the row's own currency has a rate.
+        if (typeof rates.USD !== 'number') {
+          throw new Error('the FX batch did not return a usable USD/SGD rate')
+        }
+
+        for (const currency of missing) {
+          if (currency === 'USD') continue
+          pushWarningOnce(warnings, `No ${currency}/SGD rate: ${currency} holdings are unpriced.`)
+        }
+        for (const currency of fromCache) {
+          pushWarningOnce(warnings, `${currency}/SGD rate not refreshed: using the last known rate.`)
+        }
+        if (fetched.errors.length > 0) {
+          logUpstreamFailure(
+            'FX batch fetch',
+            new Error(fetched.errors.map(error => `${error.currency}: ${error.message}`).join('; ')),
+          )
+        }
+
+        const asOfCandidates = [fetched.asOf, fromCache.length > 0 ? cached?.asOf : null]
+          .filter((value): value is string => typeof value === 'string' && value.length > 0)
+          .sort()
+
         const normalized: FxSnapshot = {
-          ...freshSnapshot,
-          usdToSgd: roundRate(freshSnapshot.usdToSgd),
-          sgdToUsd: roundRate(freshSnapshot.sgdToUsd),
+          base: 'USD',
+          quote: 'SGD',
+          usdToSgd: rates.USD,
+          sgdToUsd: roundRate(1 / rates.USD),
+          sgdPerUnit: rates,
+          // Keep the oldest date used so the page never claims a fresher rate
+          // than one of its pairs actually has.
+          asOf: asOfCandidates[0] ?? new Date(now).toISOString().slice(0, 10),
+          fetchedAt: new Date(now).toISOString(),
+          source: fetched.source ?? cached?.source ?? 'unknown',
+          isStale: fetched.isStale || fromCache.length > 0,
         }
 
         const entry: FxCacheEntry = {
@@ -246,7 +342,10 @@ async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): 
         }
         fxCache = entry
         persistFxCache(entry, now)
-        lastFxOutcome = { result: 'ok', at: now }
+        lastFxOutcome = {
+          result: missing.length === 0 && fetched.errors.length === 0 ? 'ok' : 'partial',
+          at: now,
+        }
 
         return normalized
       })().finally(() => {
@@ -262,10 +361,10 @@ async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): 
     lastFxOutcome = { result: isUnreachable(failure) ? 'unreachable' : 'failed', at: now }
     logUpstreamFailure('FX fetch', error)
 
-    if (fxCache) {
+    if (cached) {
       warnings.push(`Exchange rate not refreshed: ${reason}. Using the last known USD/SGD rate.`)
       return {
-        ...fxCache.snapshot,
+        ...cached,
         isStale: true,
       }
     }
@@ -535,8 +634,10 @@ function buildAssetRow(
       costBasisNative = roundMoney(quantity * boughtUnitPrice)
       if (fx) {
         const convertedCost = convertNativeAmount(costBasisNative, nativeCurrency, fx)
-        costBasisUsd = convertedCost.usd
-        costBasisSgd = convertedCost.sgd
+        if (convertedCost) {
+          costBasisUsd = convertedCost.usd
+          costBasisSgd = convertedCost.sgd
+        }
       }
     }
   }
@@ -683,9 +784,15 @@ export async function buildBalanceSheet(refreshMode: RefreshMode): Promise<Balan
   const assets = listAssets()
   const liabilities = listLiabilities()
 
+  const neededCurrencies: CurrencyCode[] = [
+    'USD',
+    ...assets.map(asset => asset.currency),
+    ...liabilities.map(liability => liability.currency),
+  ]
+
   const [{ byKey: quoteByKey, requested, fetchedAt: quotesFetchedAt }, fx] = await Promise.all([
     resolveQuoteSnapshots(assets, refreshMode, warnings),
-    resolveFxSnapshot(refreshMode, warnings),
+    resolveFxSnapshot(refreshMode, neededCurrencies, warnings),
   ])
 
   const rows: BalanceSheetRow[] = []

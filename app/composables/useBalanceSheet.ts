@@ -5,6 +5,7 @@ import type {
   BalanceSheetResponse,
   BalanceSheetRow,
   CurrencyCode,
+  FxSnapshot,
   LiabilityEntry,
   RefreshMode,
 } from '~~/shared/types/balance-sheet'
@@ -63,7 +64,39 @@ const EMPTY_SHEET: BalanceSheetResponse = {
   warnings: [],
 }
 
-function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
+function roundMoney(value: number): number {
+  return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100
+}
+
+/**
+ * A just-saved row is shown before the server round-trip. Convert it through
+ * the rates already on the page so a HKD row does not flash as zero. Unknown
+ * rates stay zero; the row is pending and the refresh replaces it.
+ */
+function previewAmounts(amount: number, currency: CurrencyCode, fx: FxSnapshot | null): { usd: number, sgd: number } {
+  const sgdPerUnit = fx?.sgdPerUnit[currency]
+  const usdPerSgd = fx?.sgdPerUnit.USD
+
+  if (typeof sgdPerUnit !== 'number' || !Number.isFinite(sgdPerUnit) || sgdPerUnit <= 0) {
+    return { usd: 0, sgd: 0 }
+  }
+  if (typeof usdPerSgd !== 'number' || !Number.isFinite(usdPerSgd) || usdPerSgd <= 0) {
+    return { usd: 0, sgd: 0 }
+  }
+
+  if (currency === 'USD') {
+    return { usd: roundMoney(amount), sgd: roundMoney(amount * sgdPerUnit) }
+  }
+
+  if (currency === 'SGD') {
+    return { usd: roundMoney(amount / usdPerSgd), sgd: roundMoney(amount) }
+  }
+
+  const sgd = amount * sgdPerUnit
+  return { usd: roundMoney(sgd / usdPerSgd), sgd: roundMoney(sgd) }
+}
+
+function toTempAssetRow(payload: AssetUpsertPayload, fx: FxSnapshot | null): BalanceSheetRow {
   const section = payload.kind === 'cpf'
     ? 'cpf'
     : payload.kind === 'cash_savings'
@@ -80,6 +113,7 @@ function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
   const costBasisNative = isInvestment && costBasis !== null
     ? (payload.quantity || 0) * costBasis
     : null
+  const preview = previewAmounts(nativeAmount, payload.currency, fx)
 
   return {
     id: `temp:asset:${Date.now()}:${Math.random()}`,
@@ -99,8 +133,8 @@ function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
     pnlNative: null,
     pnlUsd: null,
     pnlSgd: null,
-    usdAmount: payload.currency === 'USD' ? nativeAmount : 0,
-    sgdAmount: payload.currency === 'SGD' ? nativeAmount : 0,
+    usdAmount: preview.usd,
+    sgdAmount: preview.sgd,
     source: isInvestment ? (manualPrice !== null ? 'manual' : 'unpriced') : 'book',
     provider: null,
     asOf: null,
@@ -112,7 +146,9 @@ function toTempAssetRow(payload: AssetUpsertPayload): BalanceSheetRow {
   }
 }
 
-function toTempLiabilityRow(payload: LiabilityUpsertPayload): BalanceSheetRow {
+function toTempLiabilityRow(payload: LiabilityUpsertPayload, fx: FxSnapshot | null): BalanceSheetRow {
+  const preview = previewAmounts(payload.outstandingAmount, payload.currency, fx)
+
   return {
     id: `temp:liability:${Date.now()}:${Math.random()}`,
     entityType: 'liability',
@@ -131,8 +167,8 @@ function toTempLiabilityRow(payload: LiabilityUpsertPayload): BalanceSheetRow {
     pnlNative: null,
     pnlUsd: null,
     pnlSgd: null,
-    usdAmount: payload.currency === 'USD' ? payload.outstandingAmount : 0,
-    sgdAmount: payload.currency === 'SGD' ? payload.outstandingAmount : 0,
+    usdAmount: preview.usd,
+    sgdAmount: preview.sgd,
     source: 'book',
     provider: null,
     asOf: null,
@@ -219,7 +255,7 @@ export function useBalanceSheet() {
   }
 
   async function createAsset(payload: AssetUpsertPayload) {
-    const temp = toTempAssetRow(payload)
+    const temp = toTempAssetRow(payload, sheet.value.fx)
     pendingRows.value.unshift(temp)
     isMutating.value = true
     errorMessage.value = null
@@ -281,7 +317,7 @@ export function useBalanceSheet() {
   }
 
   async function createLiability(payload: LiabilityUpsertPayload) {
-    const temp = toTempLiabilityRow(payload)
+    const temp = toTempLiabilityRow(payload, sheet.value.fx)
     pendingRows.value.unshift(temp)
     isMutating.value = true
     errorMessage.value = null

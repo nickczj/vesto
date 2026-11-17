@@ -2,21 +2,43 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import initDbPlugin from '~~/server/plugins/db-init'
 import { buildBalanceSheet, restoreSnapshotCache } from '~~/server/services/balance-sheet'
 import { createAsset, createLiability } from '~~/server/services/repository'
-import { saveCachedFx } from '~~/server/services/snapshot-cache'
-import type { FxSnapshot } from '~~/shared/types/balance-sheet'
+import { saveCachedFx, saveCachedQuotes } from '~~/server/services/snapshot-cache'
+import type { FxSnapshot, QuoteSnapshot } from '~~/shared/types/balance-sheet'
 import { resetTestDatabase } from './setup'
 
 const TEST_DB = '/tmp/vesto-v2-balance-sheet-test.db'
 
-function fxSnapshot(usdToSgd = 1.35): FxSnapshot {
+function fxSnapshot(usdToSgd = 1.35, sgdPerHkd?: number): FxSnapshot {
+  const sgdPerUnit: FxSnapshot['sgdPerUnit'] = {
+    USD: usdToSgd,
+    SGD: 1,
+  }
+  if (sgdPerHkd !== undefined) {
+    sgdPerUnit.HKD = sgdPerHkd
+  }
+
   return {
     base: 'USD',
     quote: 'SGD',
     usdToSgd,
     sgdToUsd: 1 / usdToSgd,
+    sgdPerUnit,
     asOf: '2026-11-16',
     fetchedAt: new Date().toISOString(),
     source: 'test',
+    isStale: false,
+  }
+}
+
+function hkdQuote(price: number): QuoteSnapshot {
+  return {
+    symbol: '0700.HK',
+    market: 'SEHK',
+    currency: 'HKD',
+    price,
+    asOf: '2026-11-17T08:00:00Z',
+    fetchedAt: '2026-11-17T08:00:00Z',
+    source: 'yahoo_unofficial_api',
     isStale: false,
   }
 }
@@ -171,5 +193,69 @@ describe('balance sheet service', () => {
     expect(row?.provider).toBeNull()
     expect(row?.nativeAmount).toBe(7605)
     expect(sheet.warnings.some(warning => warning.includes('HKD'))).toBe(false)
+  })
+
+  it('values a live HKD holding through the HKD/SGD rate', async () => {
+    seedAssetData()
+    createAsset({
+      kind: 'investment',
+      name: 'Tencent',
+      symbol: '0700.HK',
+      market: 'SEHK',
+      currency: 'HKD',
+      amount: 0,
+      quantity: 100,
+      costBasisUnitPrice: 100,
+      manualPrice: null,
+      valuationMode: 'live_preferred',
+      notes: null,
+    })
+
+    saveCachedFx({ snapshot: fxSnapshot(1.35, 0.164), cachedAt: Date.now() })
+    saveCachedQuotes([{ key: '0700.HK::SEHK', snapshot: hkdQuote(600), cachedAt: Date.now() }])
+    restoreSnapshotCache()
+
+    const sheet = await buildBalanceSheet('never')
+    const row = sheet.rows.find(item => item.name === 'Tencent')
+
+    expect(row?.nativeCurrency).toBe('HKD')
+    expect(row?.nativeAmount).toBe(60000)
+    expect(row?.sgdAmount).toBe(9840)
+    expect(row?.usdAmount).toBe(7288.89)
+    expect(row?.source).toBe('stale')
+    expect(row?.provider).toBe('yahoo_unofficial_api')
+    expect(row?.costBasisNative).toBe(10000)
+    expect(row?.pnlNative).toBe(50000)
+    expect(row?.pnlSgd).toBe(8200)
+    expect(sheet.warnings.some(warning => warning.includes('HKD'))).toBe(false)
+  })
+
+  it('marks a HKD holding unpriced when no HKD/SGD rate is known', async () => {
+    seedAssetData()
+    createAsset({
+      kind: 'investment',
+      name: 'Alibaba',
+      symbol: '9988.HK',
+      market: 'SEHK',
+      currency: 'HKD',
+      amount: 0,
+      quantity: 100,
+      costBasisUnitPrice: 100,
+      manualPrice: 120,
+      valuationMode: 'live_preferred',
+      notes: null,
+    })
+
+    saveCachedFx({ snapshot: fxSnapshot(), cachedAt: Date.now() })
+    restoreSnapshotCache()
+
+    const sheet = await buildBalanceSheet('never')
+    const row = sheet.rows.find(item => item.name === 'Alibaba')
+
+    expect(row?.source).toBe('unpriced')
+    expect(row?.nativeAmount).toBe(12000)
+    expect(row?.sgdAmount).toBe(0)
+    expect(sheet.warnings.some(warning => warning.includes('No HKD/SGD rate'))).toBe(true)
+    expect(sheet.quoteSummary.unpriced).toBe(1)
   })
 })

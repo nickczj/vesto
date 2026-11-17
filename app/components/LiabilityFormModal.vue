@@ -22,13 +22,14 @@
       <label>
         <span>Currency</span>
         <select v-model="form.currency" class="bs-input">
-          <option value="USD">USD</option>
-          <option value="SGD">SGD</option>
+          <option v-for="currency in CURRENCIES" :key="currency" :value="currency">
+            {{ currency }}
+          </option>
         </select>
       </label>
 
       <label>
-        <span>Outstanding amount</span>
+        <span>Outstanding amount <span class="form-optional">{{ form.currency }}</span></span>
         <input v-model.number="form.outstandingAmount" class="bs-input" type="number" step="0.01" min="0.01" required>
       </label>
 
@@ -54,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import type { LiabilityEntry } from '~~/shared/types/balance-sheet'
+import { CURRENCIES, type LiabilityEntry } from '~~/shared/types/balance-sheet'
 
 interface LiabilityPayload {
   type: LiabilityEntry['type']

@@ -660,6 +660,24 @@ body {
   color: var(--loss);
 }
 
+.form-currency-warning {
+  display: grid;
+  gap: 8px;
+}
+
+.form-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.form-confirm input {
+  margin-top: 2px;
+}
+
 .resolution-mark {
   font-weight: 600;
 }

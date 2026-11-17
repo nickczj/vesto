@@ -9,7 +9,10 @@
 1. Primary screen is a concise grouped balance sheet table.
 2. Net worth is always derived as `total assets - total liabilities` in both USD and SGD.
 3. `vesto-go` is market-data only (quotes + FX + provider health). Portfolio records stay in Nuxt SQLite.
-4. Vesto supports `USD` and `SGD` only.
+4. Vesto supports `USD`, `SGD` and `HKD` only. `asset_entries.currency` is
+   the holding's **quotation currency**; USD and SGD remain the only totals
+   currencies. Adding another currency is a deliberate change: the type, the
+   SQLite `CHECK`, the symbol map, FX coverage and tests all move together.
 5. Daily valuation history is captured once per SGT day at 08:00. There is no
    backfill; a missed day is a permanent hole. Portfolio drawdown is a read-time
    view over that series, not a separate service or alert.
@@ -22,7 +25,8 @@
   - `valuation_history` (one row per SGT date; captured by the `snapshot` sidecar)
 - External backend (`vesto-go`) provides:
   - `POST /v1/quotes/latest/batch`
-  - `GET /api/market/fx?base=USD&quote=SGD`
+  - `POST /api/market/fx/batch?quote=SGD` — the BFF asks for every currency the
+    sheet holds. `sgdPerUnit` is the rate table; USD is the pivot.
 
 ## Asset/Liability Model
 - Asset kinds: `investment`, `cpf`, `cash_savings`, `manual`
@@ -36,12 +40,20 @@
 - Investment price fields:
   - `costBasisUnitPrice`: purchase cost per unit; the only input to P&L.
   - `manualPrice`: fallback unit price, used only when no usable live quote exists.
-  - A holding has one fixed `currency`; a quote in a different currency is ignored with a warning.
+  - A holding has one fixed `currency`: the currency its price is quoted in. A
+  quote in a different currency is ignored with a warning rather than changing
+  the row's currency. Changing the currency in the edit dialog does **not**
+  convert the stored cost basis or manual price; the form requires an explicit
+  confirmation.
 
 ## FX Valuation Contract
-- Canonical FX fetch is `USD->SGD`.
-- Derive `SGD->USD` by inversion `1 / usdToSgd`.
+- Canonical FX fetch is a single batch of SGD-quoted pairs for every currency
+  the sheet holds, plus USD. SGD itself is never fetched.
+- Store `sgdPerUnit`: SGD per one unit of each currency. `usdToSgd` is
+  `sgdPerUnit.USD`; derive `sgdToUsd` by inversion.
 - Every row carries native amount and converted USD/SGD amounts.
+- A missing rate makes rows in that currency `unpriced`. Never fall back to 1:1,
+  and never let a missing optional pair hide the USD/SGD totals.
 
 ## API Contract (Nuxt)
 - `GET /api/balance-sheet?refresh=never|stale|always`
@@ -76,6 +88,11 @@
   a dashboard.
 - The Source column shows `provider · valuation-state` when a quote supplied
   the price (`yahoo_scrape · live`), and just the state otherwise.
+- Currency is chosen from the supported list in the add/edit dialogs. Changing
+  an existing row's currency warns first: the stored cost basis and manual price
+  are read as the new currency and are not converted.
+- The hero FX line names every non-USD/SGD currency the sheet holds, with its
+  SGD rate. USD/SGD stays the headline pair and the only headline toggle.
 - The net-worth history card sits beside the net-worth headline. It plots
   complete days only, shows SGD as the headline, and reports drawdown from the
   running peak at read time. Incomplete days are counted but excluded from the

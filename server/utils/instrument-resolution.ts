@@ -1,3 +1,4 @@
+import { CURRENCIES } from '~~/shared/types/balance-sheet'
 import type { InstrumentResolution } from '~~/shared/types/instrument'
 import type { RequestFailure } from '~~/shared/utils/request-failure'
 import { canonicalCurrency, type InstrumentQuoteSnapshot } from '~~/server/utils/vesto-go'
@@ -10,7 +11,7 @@ export function resolutionFromQuote(quote: InstrumentQuoteSnapshot): InstrumentR
       status: 'not_found',
       symbol: quote.symbol,
       quote: null,
-      message: `The quote is in ${quote.currency || 'an unsupported currency'}; Vesto supports USD and SGD only.`,
+      message: `The quote is in ${quote.currency || 'an unsupported currency'}; Vesto supports ${CURRENCIES.join(', ')}.`,
     }
   }
 

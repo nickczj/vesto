@@ -29,6 +29,7 @@ function fileTimestamp(value: string): string {
 type DetailExportRow = {
   Section: string
   Name: string
+  Currency: string
   Category: string
   Type: string
   Quantity: number | ''
@@ -56,6 +57,7 @@ function toDetailRow(row: BalanceSheetRow): DetailExportRow {
   return {
     Section: SECTION_LABELS[row.section],
     Name: row.name,
+    Currency: row.nativeCurrency,
     Category: row.category,
     Type: row.entityType,
     Quantity: row.quantity ?? '',
@@ -80,6 +82,7 @@ export function toDetailRows(sheet: BalanceSheetResponse): DetailExportRow[] {
     {
       Section: 'Summary',
       Name: 'Net Worth',
+      Currency: '',
       Category: '',
       Type: '',
       Quantity: '',
@@ -128,6 +131,11 @@ export function toSummaryRows(sheet: BalanceSheetResponse): Array<Array<string |
   if (sheet.fx) {
     rows.push(['FxUsdToSgd', sheet.fx.usdToSgd])
     rows.push(['FxSgdToUsd', sheet.fx.sgdToUsd])
+
+    for (const [currency, rate] of Object.entries(sheet.fx.sgdPerUnit).sort(([a], [b]) => a.localeCompare(b))) {
+      rows.push([`FxSgdPerUnit_${currency}`, rate])
+    }
+
     rows.push(['FxAsOf', sheet.fx.asOf])
     rows.push(['FxSource', sheet.fx.source])
     rows.push(['FxIsStale', sheet.fx.isStale ? 1 : 0])
@@ -150,7 +158,7 @@ export async function exportBalanceSheetToExcel(sheet: BalanceSheetResponse) {
   const workbook = XLSX.utils.book_new()
 
   const detailSheet = XLSX.utils.json_to_sheet(toDetailRows(sheet))
-  withColumns(detailSheet as Record<string, unknown>, [18, 28, 20, 10, 10, 10, 22, 15, 15, 15, 14, 14, 16, 12, 12, 10, 32])
+  withColumns(detailSheet as Record<string, unknown>, [18, 28, 10, 20, 10, 10, 10, 22, 15, 15, 15, 14, 14, 16, 12, 12, 10, 32])
   XLSX.utils.book_append_sheet(workbook, detailSheet, 'Rows')
 
   const summarySheet = XLSX.utils.aoa_to_sheet(toSummaryRows(sheet))

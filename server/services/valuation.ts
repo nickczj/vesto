@@ -1,4 +1,5 @@
 import type {
+  AmountPair,
   BalanceSheetRow,
   BalanceSheetTotals,
   CurrencyCode,
@@ -27,27 +28,46 @@ export function emptyTotals(): BalanceSheetTotals {
   }
 }
 
-export function convertNativeAmount(amount: number, currency: CurrencyCode, fx: FxSnapshot): {
-  usd: number
-  sgd: number
-} {
-  switch (currency) {
-    case 'USD':
-      return {
-        usd: roundMoney(amount),
-        sgd: roundMoney(amount * fx.usdToSgd),
-      }
-    case 'SGD':
-      return {
-        usd: roundMoney(amount * fx.sgdToUsd),
-        sgd: roundMoney(amount),
-      }
-    default: {
-      // Exhaustiveness guard: adding a currency must be a deliberate change,
-      // never an implicit "treat it as USD/SGD".
-      const unsupported: never = currency
-      throw new Error(`unsupported currency: ${String(unsupported)}`)
+/**
+ * Convert a native amount into the two totals currencies through the SGD rate
+ * table. USD is the only required rate besides the row's own: `sgdPerUnit` is
+ * expressed as SGD per one unit, so HKD -> SGD -> USD needs no special case.
+ *
+ * Returns null when the row's currency has no known rate. Callers must mark the
+ * row unpriced rather than substituting 1:1, which would invent a value.
+ */
+export function convertNativeAmount(amount: number, currency: CurrencyCode, fx: FxSnapshot): AmountPair | null {
+  const sgdPerUnit = fx.sgdPerUnit[currency]
+  const usdPerSgd = fx.sgdPerUnit.USD
+
+  if (typeof sgdPerUnit !== 'number' || !Number.isFinite(sgdPerUnit) || sgdPerUnit <= 0) {
+    return null
+  }
+  if (typeof usdPerSgd !== 'number' || !Number.isFinite(usdPerSgd) || usdPerSgd <= 0) {
+    return null
+  }
+
+  // The two totals currencies keep their native amount exact. Converting USD
+  // to SGD and back would lose a cent to rounding on every row.
+  if (currency === 'USD') {
+    return {
+      usd: roundMoney(amount),
+      sgd: roundMoney(amount * sgdPerUnit),
     }
+  }
+
+  if (currency === 'SGD') {
+    return {
+      usd: roundMoney(amount / usdPerSgd),
+      sgd: roundMoney(amount),
+    }
+  }
+
+  const sgd = amount * sgdPerUnit
+
+  return {
+    usd: roundMoney(sgd / usdPerSgd),
+    sgd: roundMoney(sgd),
   }
 }
 

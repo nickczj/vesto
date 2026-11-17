@@ -36,10 +36,11 @@ Build a single-user personal finance application that presents a full balance sh
 - Legacy v1 import was a one-off and its endpoint was removed in Phase 2.
 - External API dependencies (`vesto-go`):
   - `POST /v1/quotes/latest/batch`
-  - `GET /api/market/fx?base=USD&quote=SGD`
+  - `POST /api/market/fx/batch?quote=SGD` — one rate per currency the sheet holds
 
 ## Validation Requirements
-- Currency enum restricted to `USD`, `SGD`.
+- Currency enum restricted to `USD`, `SGD`, `HKD`. A holding's currency is its
+  quotation currency, not a display preference.
 - Investment create/update requires `symbol`, `quantity`, and `valuationMode`.
 - CPF requires `cpfBucket`.
 - Liability requires positive `outstandingAmount`.

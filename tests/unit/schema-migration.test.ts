@@ -60,11 +60,33 @@ describe('schema migrations', () => {
     const applied = useSqlite()
       .prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations')
       .get() as { n: number }
-    expect(applied.n).toBe(4)
+    expect(applied.n).toBe(5)
 
     const history = useSqlite()
       .prepare("SELECT COUNT(*) AS n FROM pragma_table_info('valuation_history')")
       .get() as { n: number }
     expect(history.n).toBe(10)
+  })
+
+  it('rebuilt the tables with HKD allowed and the unique index intact', () => {
+    initDbPlugin()
+
+    const table = useSqlite()
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'asset_entries'")
+      .get() as { sql: string }
+    expect(table.sql).toContain("'HKD'")
+
+    const index = useSqlite()
+      .prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'index' AND name = 'asset_entries_external_id_unique'")
+      .get() as { n: number }
+    expect(index.n).toBe(1)
+
+    const insert = (currency: string) => useSqlite().prepare(`
+      INSERT INTO asset_entries (kind, name, currency, amount, valuation_mode, created_at, updated_at)
+      VALUES ('manual', 'Currency check', ?, 100, 'live_preferred', '2026-11-17T00:00:00Z', '2026-11-17T00:00:00Z')
+    `).run(currency)
+
+    expect(() => insert('HKD')).not.toThrow()
+    expect(() => insert('EUR')).toThrow(/CHECK constraint failed/)
   })
 })

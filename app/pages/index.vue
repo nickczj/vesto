@@ -112,10 +112,10 @@
 </template>
 
 <script setup lang="ts">
-import type { AssetEntry, BalanceSheetRow, LiabilityEntry } from '~~/shared/types/balance-sheet'
+import type { AssetEntry, BalanceSheetRow, CurrencyCode, LiabilityEntry } from '~~/shared/types/balance-sheet'
 import { toUserMessage } from '~/utils/errors'
 import { exportBalanceSheetToExcel } from '~/utils/excel-export'
-import { formatCurrency, formatShortDate } from '~/utils/formatters'
+import { currencySymbol, formatCurrency, formatShortDate } from '~/utils/formatters'
 import { peakHistoryPoint, sgtDateKey } from '~/utils/history-range'
 import { formatLedgerAmount, formatLedgerPercent, formatLedgerValue } from '~/utils/ledger'
 import type { PrimaryCurrency } from '~/utils/view-preferences'
@@ -180,6 +180,34 @@ const secondaryCurrency = computed<PrimaryCurrency>(
   () => (preferences.value.primaryCurrency === 'SGD' ? 'USD' : 'SGD'),
 )
 
+// Only currencies the sheet actually holds need a line here. USD/SGD is the
+// headline pair; HKD and anything added later is named with its SGD rate.
+const heldNonTotalsCurrencies = computed<CurrencyCode[]>(() => {
+  const currencies = new Set<CurrencyCode>()
+
+  for (const row of sheet.value.rows) {
+    if (row.nativeCurrency !== 'USD' && row.nativeCurrency !== 'SGD') {
+      currencies.add(row.nativeCurrency)
+    }
+  }
+
+  return [...currencies].sort()
+})
+
+const extraFxRates = computed(() => {
+  const fx = sheet.value.fx
+  if (!fx) return ''
+
+  return heldNonTotalsCurrencies.value.map((currency) => {
+    const rate = fx.sgdPerUnit[currency]
+    if (typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0) {
+      return `${currency}/SGD rate unavailable`
+    }
+
+    return `${currencySymbol(currency)}1 = S$${rate.toFixed(4)}`
+  }).join(', ')
+})
+
 const fxLine = computed(() => {
   const fx = sheet.value.fx
   if (!fx) return 'USD/SGD rate unavailable. Totals are hidden until a rate can be fetched.'
@@ -187,8 +215,9 @@ const fxLine = computed(() => {
   const secondaryNetWorth = amountFor(sheet.value.totals.netWorth, secondaryCurrency.value)
   const rate = fx.usdToSgd.toFixed(4)
   const stale = fx.isStale ? ' (last known)' : ''
+  const extra = extraFxRates.value ? `; ${extraFxRates.value}` : ''
 
-  return `${formatCurrency(secondaryNetWorth, secondaryCurrency.value)} at ${rate} SGD per USD, rate from ${formatShortDate(fx.asOf)}${stale}.`
+  return `${formatCurrency(secondaryNetWorth, secondaryCurrency.value)} at ${rate} SGD per USD${extra}, rates from ${formatShortDate(fx.asOf)}${stale}.`
 })
 
 // Current net worth minus the latest complete snapshot. The date is named

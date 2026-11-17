@@ -2,32 +2,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import initDbPlugin from '~~/server/plugins/db-init'
 import { buildBalanceSheet, restoreSnapshotCache } from '~~/server/services/balance-sheet'
 import { createAsset } from '~~/server/services/repository'
-import type { FxSnapshot, QuoteSnapshot } from '~~/shared/types/balance-sheet'
+import type { QuoteSnapshot } from '~~/shared/types/balance-sheet'
+import type { FxRateSet } from '~~/server/utils/vesto-go'
 import { resetTestDatabase } from './setup'
 
-const { fetchQuoteBatch, fetchUsdToSgdFx } = vi.hoisted(() => ({
+const { fetchQuoteBatch, fetchFxRatesToSgd } = vi.hoisted(() => ({
   fetchQuoteBatch: vi.fn(),
-  fetchUsdToSgdFx: vi.fn(),
+  fetchFxRatesToSgd: vi.fn(),
 }))
 
 vi.mock('~~/server/utils/vesto-go', () => ({
   buildQuoteCacheKey: (symbol: string, market?: string | null) =>
     `${symbol.trim().toUpperCase()}::${(market || '').trim().toUpperCase()}`,
   fetchQuoteBatch,
-  fetchUsdToSgdFx,
+  fetchFxRatesToSgd,
 }))
 
 const TEST_DB = '/tmp/vesto-v2-quote-staleness-test.db'
 const QUOTE_KEY = 'VWRA.L::LSE'
 
-function fxSnapshot(): FxSnapshot {
+function fxRateSet(): FxRateSet {
   return {
-    base: 'USD',
-    quote: 'SGD',
-    usdToSgd: 1.35,
-    sgdToUsd: 1 / 1.35,
+    sgdPerUnit: { USD: 1.35, HKD: 0.164 },
+    errors: [],
     asOf: '2026-11-16',
-    fetchedAt: new Date().toISOString(),
     source: 'test',
     isStale: false,
   }
@@ -81,8 +79,8 @@ describe('quote staleness', () => {
     restoreSnapshotCache()
 
     fetchQuoteBatch.mockReset()
-    fetchUsdToSgdFx.mockReset()
-    fetchUsdToSgdFx.mockResolvedValue(fxSnapshot())
+    fetchFxRatesToSgd.mockReset()
+    fetchFxRatesToSgd.mockResolvedValue(fxRateSet())
     // The service logs the raw upstream error; keep the test output quiet.
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
@@ -168,7 +166,7 @@ describe('quote staleness', () => {
     fetchQuoteBatch.mockRejectedValueOnce(Object.assign(new Error('bad gateway'), { status: 502 }))
     expect((await buildBalanceSheet('always')).marketData.status).toBe('degraded')
 
-    fetchUsdToSgdFx.mockRejectedValueOnce(noResponse())
+    fetchFxRatesToSgd.mockRejectedValueOnce(noResponse())
     fetchQuoteBatch.mockResolvedValueOnce({
       byKey: new Map([[QUOTE_KEY, quoteSnapshot()]]),
       errors: [],
@@ -181,7 +179,7 @@ describe('quote staleness', () => {
     createInvestment()
 
     fetchQuoteBatch.mockRejectedValueOnce(noResponse())
-    fetchUsdToSgdFx.mockRejectedValueOnce(noResponse())
+    fetchFxRatesToSgd.mockRejectedValueOnce(noResponse())
     const sheet = await buildBalanceSheet('always')
 
     expect(sheet.warnings).toContain(

@@ -24,7 +24,7 @@ export const assetEntries = sqliteTable('asset_entries', {
     .where(sql`${table.externalId} IS NOT NULL`),
   kindCheck: check('asset_entries_kind_check', sql`${table.kind} IN ('investment', 'cpf', 'cash_savings', 'manual')`),
   cpfBucketCheck: check('asset_entries_cpf_bucket_check', sql`${table.cpfBucket} IN ('OA', 'SA', 'MA', 'RA')`),
-  currencyCheck: check('asset_entries_currency_check', sql`${table.currency} IN ('USD', 'SGD')`),
+  currencyCheck: check('asset_entries_currency_check', sql`${table.currency} IN ('USD', 'SGD', 'HKD')`),
   valuationModeCheck: check('asset_entries_valuation_mode_check', sql`${table.valuationMode} IN ('live_preferred', 'manual_only')`),
 }))
 
@@ -43,7 +43,7 @@ export const liabilityEntries = sqliteTable('liability_entries', {
     .on(table.externalId)
     .where(sql`${table.externalId} IS NOT NULL`),
   typeCheck: check('liability_entries_type_check', sql`${table.type} IN ('loan', 'credit_card', 'other')`),
-  currencyCheck: check('liability_entries_currency_check', sql`${table.currency} IN ('USD', 'SGD')`),
+  currencyCheck: check('liability_entries_currency_check', sql`${table.currency} IN ('USD', 'SGD', 'HKD')`),
 }))
 
 export const appSettings = sqliteTable('app_settings', {
