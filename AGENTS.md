@@ -92,6 +92,9 @@
 - The NAS `backup` service writes consistent SQLite snapshots; restore with `deploy/restore-db.sh`.
 - The NAS `snapshot` service calls authenticated `POST /api/snapshots` daily at
   08:00 SGT and retries for up to two hours. It has no volume and owns no data.
+  Its startup catch-up only runs once the 08:00 SGT cut-off has passed: a row
+  captured earlier holds intraday prices, and because a priced row is complete
+  the scheduled run would then skip the day entirely.
 - The Mac mini pulls a verified off-host copy twice daily with `deploy/backup-pull.sh`; off-site replication is still pending.
 
 ## Engineering Notes
@@ -103,7 +106,9 @@
 - Valuation history uses the same `buildBalanceSheet('always')` path as the page;
   do not duplicate valuation logic in the snapshot script or in SQL.
 - `as_of_date` is the SGT calendar date (UTC+8, no DST). A complete day is final
-  unless `force=always`; incomplete days may be improved by retries.
+  unless `force=always`; incomplete days may be improved by retries. Because a
+  fully priced row counts as complete, nothing may capture before the cut-off —
+  `hasReachedCutoff` in `scripts/snapshot-schedule.mjs` owns that rule.
 - Drawdown is computed at read time over complete days only. Never store it and
   never let an incomplete day set a peak.
 - Do not add raw DDL to plugins. `manual_unit_price` was dropped in
