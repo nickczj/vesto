@@ -7,7 +7,8 @@ Balance-sheet-first personal finance tracker built with Nuxt 4.
 - Dual-currency valuation (native, USD, SGD) on every row; `unpriced` rows are excluded, never zeroed.
 - Nightly valuation history with a trend chart and read-time drawdown.
 - Local SQLite record ownership for assets/liabilities.
-- `vesto-go` integration for live quotes, provider health and USD/SGD FX.
+- `vesto-go` integration for live quotes, provider health and FX for every held
+  currency, with USD/SGD as the headline pair.
 - Manual CRUD dialogs, an Excel export, and per-device view settings.
 - 45-second auto-refresh while the tab is visible, plus manual refresh.
 - Consistent daily SQLite snapshots, an encrypted off-site copy, and HTTP Basic auth in production.
