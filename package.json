@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "typecheck": "nuxt typecheck",
     "test:e2e": "playwright test",
+    "pretest:e2e": "npm run build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "preview": "nuxt preview",
