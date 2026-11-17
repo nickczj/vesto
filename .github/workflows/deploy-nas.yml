@@ -129,11 +129,13 @@ jobs:
             deploy/docker-compose.nas.yml \
             deploy/deploy.sh \
             deploy/restore-db.sh \
+            deploy/offsite.sh \
+            deploy/offsite.env.example \
             deploy/RUNBOOK.md \
             .env.example \
             | ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "tar -xzf - -C '${NAS_PATH}'"
 
-          ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "chmod +x '${NAS_PATH}/deploy/deploy.sh' '${NAS_PATH}/deploy/restore-db.sh'"
+          ssh "${SSH_ARGS[@]}" "${NAS_TARGET}" "chmod +x '${NAS_PATH}/deploy/deploy.sh' '${NAS_PATH}/deploy/restore-db.sh' '${NAS_PATH}/deploy/offsite.sh'"
 
       - name: Execute remote deploy
         env:

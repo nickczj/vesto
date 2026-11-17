@@ -57,6 +57,24 @@ services:
     networks:
       - vesto_shared
 
+  # Encrypted off-site copy of the snapshots in Cloudflare R2. It reads only
+  # /backups: never the live database. Home Assistant watches it through the
+  # webhook in deploy/offsite.sh; see deploy/RUNBOOK.md.
+  offsite:
+    image: restic/restic:0.19.1
+    restart: unless-stopped
+    env_file:
+      - ../.env.offsite
+    environment:
+      BACKUP_DIR: /backups
+      RESTIC_PASSWORD_FILE: /run/secrets/restic-password
+      OFFSITE_INTERVAL_HOURS: "24"
+    volumes:
+      - ../backups:/backups:ro
+      - ./restic-password:/run/secrets/restic-password:ro
+      - ./offsite.sh:/usr/local/bin/offsite.sh:ro
+    entrypoint: ["sh", "/usr/local/bin/offsite.sh"]
+
 networks:
   vesto_shared:
     external: true

@@ -102,7 +102,11 @@
   Its startup catch-up only runs once the 08:00 SGT cut-off has passed: a row
   captured earlier holds intraday prices, and because a priced row is complete
   the scheduled run would then skip the day entirely.
-- The Mac mini pulls a verified off-host copy twice daily with `deploy/backup-pull.sh`; off-site replication is still pending.
+- The Mac mini pulls a verified off-host copy twice daily with `deploy/backup-pull.sh`.
+- The `offsite` service copies `backups/` to Cloudflare R2 daily with restic and
+  reports every run to Home Assistant. It is the third copy and the only
+  off-site one. It reads the snapshots, never the live database; see
+  `deploy/RUNBOOK.md`.
 
 ## Engineering Notes
 - Keep server-side valuation deterministic and testable.

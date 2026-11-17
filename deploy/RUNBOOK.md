@@ -137,13 +137,89 @@ Restore from the Mac copy: copy the chosen file back to the NAS and run
 `restore-db.sh` as above.
 
 This is an off-host copy, not an off-site one: both machines are in the same
-home. Backrest on the NAS (`http://nas.local:9898`) remains the intended
-platform for the off-site copy and whole-NAS backups. Configure it with a
-repository that is **not on this NAS** (S3/B2 via rclone, or a restic
-REST/SFTP target), source `/userdata/services/vesto/backups`, daily schedule,
-and a retention policy (for example 14 daily / 8 weekly / 4 monthly). Verify by
-restoring one snapshot to `/tmp` and opening it with `sqlite3`. Never point a
-Backrest plan at the live `data/vesto-v2.db`: it runs in WAL mode.
+home. The off-site copy is the `offsite` service below. Never point any backup
+job at the live `data/vesto-v2.db`: it runs in WAL mode.
+
+## Off-site backup (Cloudflare R2)
+
+The `offsite` compose service copies `backups/` to a private Cloudflare R2
+bucket with restic. It reads only the sidecar snapshots, so it can never catch
+the database mid-write, and restic encrypts client-side: R2 stores ciphertext.
+
+- **Cadence:** immediately on start, then every 24 hours.
+- **Retention:** 7 daily, 4 weekly, 12 monthly, pruned by restic. Do not add an
+  R2 lifecycle rule; it can delete pack files restic still references.
+- **Integrity:** `restic check` runs after every backup.
+- **Monitoring:** every run posts to a Home Assistant webhook. Failure raises a
+  notification immediately; no success for 54 hours raises a stale alert.
+
+### One-time setup
+
+1. Cloudflare dashboard → R2 → create a private bucket, e.g. `vesto-backups`.
+2. R2 → Manage API tokens → create a token scoped to that bucket with
+   **Object Read & Write**. Keep the Access Key ID and Secret Access Key.
+3. On the NAS:
+
+```sh
+cd /home/nick/services/vesto
+cp deploy/offsite.env.example .env.offsite
+chmod 600 .env.offsite
+# fill in RESTIC_REPOSITORY, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
+# AWS_DEFAULT_REGION=auto and HA_VESTO_WEBHOOK
+
+# repository password: long, random, and also in the password manager
+openssl rand -base64 32 > deploy/restic-password
+chmod 600 deploy/restic-password
+```
+
+The endpoint is `https://<account_id>.r2.cloudflarestorage.com` and the
+repository is `s3:` followed by that URL and `/vesto-backups`.
+
+4. Start it. `--force-recreate` matters if the container is already running
+   with the empty env file, because compose reads `env_file` only at creation:
+
+```sh
+cd deploy
+docker compose --project-name vesto-v2 --env-file ../.env \
+  -f docker-compose.nas.yml up -d --force-recreate offsite
+docker compose --project-name vesto-v2 --env-file ../.env \
+  -f docker-compose.nas.yml logs -f offsite
+```
+
+Before the config is filled in the log says `not configured ... idling`. After
+it, the first run initialises the repository and logs `backup finished`.
+
+### Verify
+
+```sh
+# one run by hand, outside the loop
+docker compose ... exec offsite sh /usr/local/bin/offsite.sh --once
+
+# the repository holds snapshots
+docker compose ... exec offsite restic snapshots
+
+# restore the newest snapshot and check it
+docker compose ... exec offsite restic restore latest --target /tmp/restore
+sqlite3 -readonly /tmp/restore/backups/vesto-v2-*.db \
+  'PRAGMA integrity_check; select count(*) from asset_entries;'
+```
+
+Compare the row count with the live database. Do this once when the service is
+set up and again whenever the retention policy changes.
+
+### When the alert fires
+
+| Alert | Meaning | First checks |
+| --- | --- | --- |
+| Backup failed | The last run could not reach R2, upload, or initialise | `docker compose logs --tail=100 offsite`; R2 token revoked or bucket renamed |
+| Backup is stale | No successful run for 54 hours | Is the container running? Is the NAS up? Did the webhook URL change? |
+
+The webhook id is a secret in `.env.offsite` and in the HA automation. The
+automation is `local_only`, so the NAS must be on the same LAN.
+
+Losing `deploy/restic-password` makes the off-site copy unreadable. It is the
+one secret that must also exist outside this NAS.
+
 
 ## Auth rollout
 

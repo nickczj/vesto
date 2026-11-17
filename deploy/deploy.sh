@@ -10,6 +10,7 @@ COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-vesto-v2}"
 APP_SERVICE_NAME="${APP_SERVICE_NAME:-vesto-v2}"
 BACKUP_SERVICE_NAME="${BACKUP_SERVICE_NAME:-backup}"
 SNAPSHOT_SERVICE_NAME="${SNAPSHOT_SERVICE_NAME:-snapshot}"
+OFFSITE_SERVICE_NAME="${OFFSITE_SERVICE_NAME:-offsite}"
 APP_HEALTH_HOST="${APP_HEALTH_HOST:-127.0.0.1}"
 APP_HEALTH_PATH="${APP_HEALTH_PATH:-/api/healthz}"
 APP_HEALTH_TIMEOUT_SECONDS="${APP_HEALTH_TIMEOUT_SECONDS:-120}"
@@ -38,6 +39,18 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   echo "Environment file not found: ${ENV_FILE}" >&2
   exit 1
 fi
+
+# The off-site service is optional in behaviour but required in shape: compose
+# refuses to parse a missing env_file, and a missing bind-mount source becomes a
+# directory. Create both empty and 0600 so a fresh host can deploy; the job
+# idles until the operator fills them in (see RUNBOOK "Off-site backup").
+OFFSITE_ENV_FILE="${OFFSITE_ENV_FILE:-${PROJECT_ROOT}/.env.offsite}"
+OFFSITE_PASSWORD_FILE="${OFFSITE_PASSWORD_FILE:-${SCRIPT_DIR}/restic-password}"
+for optional_file in "${OFFSITE_ENV_FILE}" "${OFFSITE_PASSWORD_FILE}"; do
+  if [[ ! -f "${optional_file}" ]]; then
+    install -m 600 /dev/null "${optional_file}"
+  fi
+done
 
 read_env_value() {
   local key="$1"
@@ -116,6 +129,7 @@ print_diagnostics() {
   "${COMPOSE_CMD[@]}" logs --no-color --tail=200 "${APP_SERVICE_NAME}" >&2 || true
   "${COMPOSE_CMD[@]}" logs --no-color --tail=50 "${BACKUP_SERVICE_NAME}" >&2 || true
   "${COMPOSE_CMD[@]}" logs --no-color --tail=50 "${SNAPSHOT_SERVICE_NAME}" >&2 || true
+  "${COMPOSE_CMD[@]}" logs --no-color --tail=50 "${OFFSITE_SERVICE_NAME}" >&2 || true
 }
 
 wait_for_health() {
@@ -142,7 +156,7 @@ echo "Pulling images..."
 IMAGE_TAG="${IMAGE_TAG}" "${COMPOSE_CMD[@]}" pull "${APP_SERVICE_NAME}"
 
 echo "Starting ${APP_SERVICE_NAME}..."
-IMAGE_TAG="${IMAGE_TAG}" "${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}" "${SNAPSHOT_SERVICE_NAME}"
+IMAGE_TAG="${IMAGE_TAG}" "${COMPOSE_CMD[@]}" up -d "${APP_SERVICE_NAME}" "${BACKUP_SERVICE_NAME}" "${SNAPSHOT_SERVICE_NAME}" "${OFFSITE_SERVICE_NAME}"
 
 echo "Waiting for health endpoint: ${HEALTH_URL}"
 if ! wait_for_health; then
