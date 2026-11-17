@@ -6,7 +6,9 @@
  * `POST /api/snapshots` endpoint to capture the same balance sheet the page
  * shows, once per SGT day. It runs at 08:00 SGT (after the US close, before SGX
  * opens), retries while the app or a provider is unavailable, and catches up on
- * startup if today's row is missing or incomplete.
+ * startup if today's row is missing or incomplete — but only once the cut-off
+ * has passed, because a row captured earlier holds intraday prices and a
+ * complete row is never replaced.
  *
  * Usage:
  *   node scripts/valuation-snapshot.mjs --once
@@ -22,7 +24,7 @@
  *   NUXT_AUTH_PASSWORD           Basic auth password
  */
 
-import { nextRunAt, sgtDateKey } from './snapshot-schedule.mjs'
+import { hasReachedCutoff, nextRunAt, sgtDateKey } from './snapshot-schedule.mjs'
 
 const appUrl = (process.env.SNAPSHOT_APP_URL || 'http://vesto-v2:3000').replace(/\/$/, '')
 const hourSgt = Math.min(23, Math.max(0, Number(process.env.SNAPSHOT_HOUR_SGT || 8)))
@@ -125,11 +127,16 @@ async function main() {
 
   log(`watching: daily at ${hourSgt}:00 SGT, retrying up to ${retryMinutes}m every ${retryIntervalMs / 1000}s`)
 
-  // Catch up on a restart. A complete day is a no-op; an incomplete day may
-  // improve; a missing day gets a late row rather than a permanent hole. Use
-  // the full retry window so a restart just before 08:00 still covers the
-  // scheduled capture.
-  await captureUntil(Date.now() + retryMinutes * 60_000, 'startup')
+  // Catch up on a restart, but never before today's cut-off. A row captured
+  // mid-session is complete (every row is priced), so the scheduled run would
+  // see a complete day and leave it frozen at the wrong point. A restart after
+  // the cut-off still catches up within the full retry window.
+  if (hasReachedCutoff(new Date(), hourSgt)) {
+    await captureUntil(Date.now() + retryMinutes * 60_000, 'startup')
+  }
+  else {
+    log(`startup: holding until ${hourSgt}:00 SGT (a capture now would freeze intraday prices)`)
+  }
 
   for (;;) {
     const next = nextRunAt(new Date(), hourSgt)
