@@ -4,6 +4,11 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
+  ui: {
+    // app/plugins/theme.client.ts owns the `dark` class and `data-theme`.
+    // Two owners would let Nuxt UI components and the page disagree.
+    colorMode: false,
+  },
   runtimeConfig: {
     vestoGoBaseUrl: process.env.NUXT_VESTO_GO_BASE_URL || 'http://localhost:8080',
     databasePath: process.env.NUXT_DATABASE_PATH || './data/vesto-v2.db',

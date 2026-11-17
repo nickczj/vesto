@@ -1,3 +1,14 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* Tailwind v4 dropped the pointer cursor on buttons; Nuxt UI buttons rely on it. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 :root {
   --bg: #f4f7fb;
   --bg-accent-1: #e4f5ef;
@@ -30,6 +41,9 @@
   --input-bg: #ffffff;
   --button-bg: #ffffff;
   --danger-border: #f0b8b2;
+  /* Nuxt UI components take their semantic colours from the page palette. */
+  --ui-primary: var(--primary);
+  --ui-warning: var(--warning);
 }
 
 :root[data-theme='dark'] {
@@ -73,6 +87,7 @@
 body {
   margin: 0;
   font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  line-height: normal;
   color: var(--text);
   background:
     radial-gradient(circle at 5% 5%, var(--bg-accent-1) 0%, transparent 28%),
@@ -85,6 +100,9 @@ body {
   margin: 0 auto;
   padding: 14px 16px;
   display: grid;
+  /* A zero minimum, so a wide child (the table) scrolls inside its own box
+     instead of widening the whole page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -103,6 +121,7 @@ body {
 .page-header h1 {
   margin: 0;
   font-size: 1.2rem;
+  font-weight: 700;
 }
 
 .page-header p {
@@ -157,6 +176,7 @@ body {
 .kpi-card h2 {
   margin: 0;
   font-size: 0.74rem;
+  font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -200,6 +220,7 @@ body {
 .history-header h2 {
   margin: 0;
   font-size: 0.86rem;
+  font-weight: 700;
 }
 
 .history-header p {
@@ -257,8 +278,7 @@ body {
 
 .history-chart {
   display: block;
-  width: 100%;
-  height: auto;
+  max-width: 100%;
 }
 
 .history-grid line {
@@ -284,7 +304,7 @@ body {
 
 .history-axis-label {
   fill: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .history-note {
@@ -299,6 +319,12 @@ body {
   border: 1px solid var(--border);
   border-radius: 11px;
   overflow: auto;
+}
+
+/* While the table fits, the shell clips instead of scrolling. `overflow: clip`
+   does not create a scroll container, so the sticky header sticks to the page. */
+.table-shell.fits-width {
+  overflow: clip;
 }
 
 .table-toolbar {
@@ -496,6 +522,12 @@ body {
   border-color: var(--error-banner-border);
 }
 
+.warning-banner ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+
 .warning {
   color: var(--warning);
   font-weight: 600;
@@ -565,6 +597,7 @@ body {
 .simple-modal-header h3 {
   margin: 0;
   font-size: 1rem;
+  font-weight: 700;
 }
 
 .form-grid label {
@@ -692,6 +725,7 @@ body {
 .source-panel-header h2 {
   margin: 0;
   font-size: 0.86rem;
+  font-weight: 700;
 }
 
 .source-panel-header p,
@@ -801,6 +835,7 @@ body {
 .view-panel-header h2 {
   margin: 0;
   font-size: 0.86rem;
+  font-weight: 700;
 }
 
 .text-button {

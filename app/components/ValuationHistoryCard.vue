@@ -1,5 +1,5 @@
 <template>
-  <section class="history-card">
+  <section ref="cardEl" class="history-card">
     <header class="history-header">
       <div>
         <h2>Net worth history</h2>
@@ -52,7 +52,9 @@
       <div v-if="chart" class="history-chart-wrap">
         <svg
           class="history-chart"
-          :viewBox="`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`"
+          :width="chart.width"
+          :height="chart.height"
+          :viewBox="`0 0 ${chart.width} ${chart.height}`"
           role="img"
           :aria-label="chartSummary"
         >
@@ -61,7 +63,7 @@
               v-for="line in chart.grid"
               :key="line.y"
               :x1="PADDING.left"
-              :x2="CHART_WIDTH - PADDING.right"
+              :x2="chart.width - PADDING.right"
               :y1="line.y"
               :y2="line.y"
             />
@@ -79,13 +81,13 @@
             :y="line.y + 4"
             text-anchor="end"
           >
-            {{ line.label }}
+            {{ formatCurrency(line.value, 'SGD', true) }}
           </text>
-          <text class="history-axis-label" :x="PADDING.left" :y="CHART_HEIGHT - 6">
-            {{ formatHistoryDate(chart.firstPoint.asOfDate) }}
+          <text class="history-axis-label" :x="PADDING.left" :y="chart.height - 6">
+            {{ formatHistoryDate(chart.first.point.asOfDate) }}
           </text>
-          <text class="history-axis-label" :x="CHART_WIDTH - PADDING.right" :y="CHART_HEIGHT - 6" text-anchor="end">
-            {{ formatHistoryDate(chart.lastPoint.asOfDate) }}
+          <text class="history-axis-label" :x="chart.width - PADDING.right" :y="chart.height - 6" text-anchor="end">
+            {{ formatHistoryDate(chart.last.point.asOfDate) }}
           </text>
         </svg>
       </div>
@@ -116,9 +118,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { ValuationHistoryPoint, ValuationHistoryResponse } from '~~/shared/types/history'
 import { formatCurrency, formatSignedCurrency } from '~/utils/formatters'
+import { HISTORY_CHART_PADDING as PADDING, buildHistoryChart } from '~/utils/history-chart'
 
 const props = defineProps<{
   history: ValuationHistoryResponse | null
@@ -130,69 +133,37 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
-const CHART_WIDTH = 640
-const CHART_HEIGHT = 190
-const PADDING = { top: 14, right: 14, bottom: 24, left: 80 }
-
 const completePoints = computed<ValuationHistoryPoint[]>(
   () => (props.history?.points || []).filter(point => point.isComplete),
 )
 
-const chart = computed(() => {
-  const points = completePoints.value
-  if (points.length < 2) return null
+// The chart is drawn at the card's measured width and a fixed height. Letting
+// the SVG scale with the page made it ~400px tall with ~21px axis text.
+const cardEl = ref<HTMLElement | null>(null)
+const chartWidth = ref(640)
+let resizeObserver: ResizeObserver | null = null
 
-  const values = points.map(point => point.netWorthSgd)
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = max - min
-  const innerWidth = CHART_WIDTH - PADDING.left - PADDING.right
-  const innerHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom
-  const baseline = PADDING.top + innerHeight
+onMounted(() => {
+  if (typeof ResizeObserver === 'undefined' || !cardEl.value) return
 
-  const xFor = (index: number) => PADDING.left + (index / (points.length - 1)) * innerWidth
-  const yFor = (value: number) => {
-    const ratio = range === 0 ? 0.5 : (value - min) / range
-    return PADDING.top + (1 - ratio) * innerHeight
-  }
-
-  const coords = points.map((point, index) => ({
-    x: xFor(index),
-    y: yFor(point.netWorthSgd),
-    point,
-  }))
-
-  const line = coords
-    .map((coord, index) => `${index === 0 ? 'M' : 'L'}${coord.x.toFixed(1)},${coord.y.toFixed(1)}`)
-    .join(' ')
-
-  const first = coords[0]!
-  const last = coords[coords.length - 1]!
-  const area = `${line} L${last.x.toFixed(1)},${baseline.toFixed(1)} L${first.x.toFixed(1)},${baseline.toFixed(1)} Z`
-
-  const grid = [0, 0.5, 1].map((ratio) => {
-    const value = max - ratio * range
-    return {
-      y: PADDING.top + ratio * innerHeight,
-      label: formatCurrency(value, 'SGD', true),
-    }
+  resizeObserver = new ResizeObserver((entries) => {
+    const width = entries[0]?.contentRect.width
+    if (width) chartWidth.value = Math.round(width)
   })
-
-  return {
-    line,
-    area,
-    grid,
-    first,
-    last,
-    firstPoint: first.point,
-    lastPoint: last.point,
-  }
+  resizeObserver.observe(cardEl.value)
 })
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+})
+
+const chart = computed(() => buildHistoryChart(completePoints.value, chartWidth.value))
 
 const chartSummary = computed(() => {
   if (!chart.value) return ''
-  return `Net worth in SGD from ${chart.value.firstPoint.asOfDate} to ${chart.value.lastPoint.asOfDate}, `
-    + `${formatCurrency(chart.value.firstPoint.netWorthSgd, 'SGD')} to ${formatCurrency(chart.value.lastPoint.netWorthSgd, 'SGD')}.`
+  const { first, last } = chart.value
+  return `Net worth in SGD from ${first.point.asOfDate} to ${last.point.asOfDate}, `
+    + `${formatCurrency(first.point.netWorthSgd, 'SGD')} to ${formatCurrency(last.point.netWorthSgd, 'SGD')}.`
 })
 
 const drawdownClass = computed(() => {

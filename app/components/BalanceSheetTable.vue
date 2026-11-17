@@ -1,9 +1,11 @@
 <template>
   <div
+    ref="shellEl"
     class="table-shell"
     :class="{
       'sticky-header': preferences.stickyHeader,
       'sticky-name': preferences.stickyNameColumn,
+      'fits-width': fitsWidth,
     }"
   >
     <div class="table-toolbar">
@@ -26,7 +28,7 @@
       </label>
     </div>
 
-    <table class="balance-table">
+    <table ref="tableEl" class="balance-table">
       <thead>
         <tr>
           <th
@@ -109,10 +111,11 @@ import {
   type SortingFn,
   type SortingState,
 } from '@tanstack/vue-table'
-import { computed, h, ref } from 'vue'
+import { computed, h, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { BalanceSection, BalanceSheetRow, BalanceSheetTotals } from '~~/shared/types/balance-sheet'
 import { useViewPreferences } from '~/composables/useViewPreferences'
 import { formatCurrency, formatSignedCurrency } from '~/utils/formatters'
+import { compareWithinSection } from '~/utils/section-sort'
 
 const props = defineProps<{
   rows: BalanceSheetRow[]
@@ -134,15 +137,34 @@ const sectionLabels: Record<BalanceSection, string> = {
   liabilities: 'Liabilities',
 }
 
-const sectionRank: Record<BalanceSection, number> = {
-  investments: 0,
-  cpf: 1,
-  cash_savings: 2,
-  liabilities: 3,
-}
-
 const sorting = ref<SortingState>([])
 const { preferences, setShowSource, setShowNative } = useViewPreferences()
+
+// The shell scrolls sideways only when the table is wider than it. While the
+// table fits, the shell is not a scroll container, so the sticky header sticks
+// to the page instead of to a box that never scrolls vertically.
+const shellEl = ref<HTMLElement | null>(null)
+const tableEl = ref<HTMLTableElement | null>(null)
+const fitsWidth = ref(false)
+let resizeObserver: ResizeObserver | null = null
+
+function measureFit() {
+  if (!shellEl.value || !tableEl.value) return
+  fitsWidth.value = tableEl.value.offsetWidth <= shellEl.value.clientWidth + 1
+}
+
+onMounted(() => {
+  measureFit()
+  if (typeof ResizeObserver === 'undefined' || !shellEl.value || !tableEl.value) return
+
+  resizeObserver = new ResizeObserver(measureFit)
+  resizeObserver.observe(shellEl.value)
+  resizeObserver.observe(tableEl.value)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+})
 
 function onSourceChange(event: Event) {
   setShowSource((event.target as HTMLInputElement).checked)
@@ -156,33 +178,10 @@ function signedAmount(row: BalanceSheetRow, amount: number): number {
   return row.isLiability ? -amount : amount
 }
 
-function sectionFirstNumberSort(getValue: (row: BalanceSheetRow) => number): SortingFn<BalanceSheetRow> {
-  return (rowA, rowB) => {
-    const sectionDelta = sectionRank[rowA.original.section] - sectionRank[rowB.original.section]
-    if (sectionDelta !== 0) return sectionDelta
-
-    const a = getValue(rowA.original)
-    const b = getValue(rowB.original)
-
-    if (a === b) return 0
-    return a > b ? 1 : -1
-  }
-}
-
-function sectionFirstNullableSort(getValue: (row: BalanceSheetRow) => number | null): SortingFn<BalanceSheetRow> {
-  return (rowA, rowB) => {
-    const sectionDelta = sectionRank[rowA.original.section] - sectionRank[rowB.original.section]
-    if (sectionDelta !== 0) return sectionDelta
-
-    const a = getValue(rowA.original)
-    const b = getValue(rowB.original)
-
-    if (a === null && b === null) return 0
-    if (a === null) return 1
-    if (b === null) return -1
-    if (a === b) return 0
-
-    return a > b ? 1 : -1
+function sortWithinSection(getValue: (row: BalanceSheetRow) => number | null): SortingFn<BalanceSheetRow> {
+  return (rowA, rowB, columnId) => {
+    const descending = sorting.value.find(entry => entry.id === columnId)?.desc ?? false
+    return compareWithinSection(rowA.original, rowB.original, getValue, descending)
   }
 }
 
@@ -286,25 +285,25 @@ const columns = [
     id: 'bought',
     header: 'Bought',
     cell: ({ row }) => formatBoughtPrice(row.original),
-    sortingFn: sectionFirstNullableSort(row => row.boughtUnitPrice),
+    sortingFn: sortWithinSection(row => row.boughtUnitPrice),
   }),
   columnHelper.display({
     id: 'current',
     header: 'Current',
     cell: ({ row }) => formatCurrentPrice(row.original),
-    sortingFn: sectionFirstNullableSort(row => row.currentUnitPrice),
+    sortingFn: sortWithinSection(row => row.currentUnitPrice),
   }),
   columnHelper.accessor(row => signedAmount(row, row.usdAmount), {
     id: 'usd',
     header: sortableHeader('USD'),
     cell: ({ row }) => formatRowAmount(row.original, row.original.usdAmount, 'USD'),
-    sortingFn: sectionFirstNumberSort(row => signedAmount(row, row.usdAmount)),
+    sortingFn: sortWithinSection(row => signedAmount(row, row.usdAmount)),
   }),
   columnHelper.accessor(row => signedAmount(row, row.sgdAmount), {
     id: 'sgd',
     header: sortableHeader('SGD'),
     cell: ({ row }) => formatRowAmount(row.original, row.original.sgdAmount, 'SGD'),
-    sortingFn: sectionFirstNumberSort(row => signedAmount(row, row.sgdAmount)),
+    sortingFn: sortWithinSection(row => signedAmount(row, row.sgdAmount)),
   }),
   columnHelper.accessor(row => row.pnlSgd, {
     id: 'pnl',
@@ -317,7 +316,7 @@ const columns = [
         },
         formatPnl(row.original),
       ),
-    sortingFn: sectionFirstNullableSort(row => row.pnlSgd),
+    sortingFn: sortWithinSection(row => row.pnlSgd),
   }),
   columnHelper.display({
     id: 'actions',
