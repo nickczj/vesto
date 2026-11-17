@@ -91,6 +91,13 @@
 - Currency is chosen from the supported list in the add/edit dialogs. Changing
   an existing row's currency warns first: the stored cost basis and manual price
   are read as the new currency and are not converted.
+- The Ccy column shows the native currency and, when the row has a market, a
+  short venue label (`HKD · HKEX`). The add/edit dialog prefills the currency
+  from a newly resolved ticker and warns when an existing row's currency
+  differs from the quote, because the quote would be ignored.
+- Market codes are canonicalised in `shared/utils/markets.ts`; store `SEHK`,
+  `LSE`, `AMS`, `SGX`, `NMS`, `NYQ` or `PCX`, not provider aliases such as
+  `HKG`, `XLON` or `XAMS`.
 - The hero FX line names every non-USD/SGD currency the sheet holds, with its
   SGD rate. USD/SGD stays the headline pair and the only headline toggle.
 - The net-worth history card sits beside the net-worth headline. It plots

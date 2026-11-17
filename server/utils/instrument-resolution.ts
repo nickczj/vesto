@@ -1,10 +1,12 @@
 import { CURRENCIES } from '~~/shared/types/balance-sheet'
 import type { InstrumentResolution } from '~~/shared/types/instrument'
 import type { RequestFailure } from '~~/shared/utils/request-failure'
+import { normalizeMarketCode } from '~~/shared/utils/markets'
 import { canonicalCurrency, type InstrumentQuoteSnapshot } from '~~/server/utils/vesto-go'
 
 export function resolutionFromQuote(quote: InstrumentQuoteSnapshot): InstrumentResolution {
   const currency = canonicalCurrency(quote.currency)
+  const market = normalizeMarketCode(quote.market)
 
   if (!currency) {
     return {
@@ -28,13 +30,13 @@ export function resolutionFromQuote(quote: InstrumentQuoteSnapshot): InstrumentR
     status: 'resolved',
     symbol: quote.symbol,
     quote: {
-      market: quote.market,
+      market,
       currency,
       price: quote.price,
       asOf: quote.asOf,
       source: quote.source,
     },
-    message: `Resolved${quote.market ? ` on ${quote.market}` : ''} in ${currency}.`,
+    message: `Resolved${market ? ` on ${market}` : ''} in ${currency}.`,
   }
 }
 

@@ -511,6 +511,19 @@ body {
   font-size: 0.75rem;
 }
 
+.ccy-cell {
+  white-space: nowrap;
+}
+
+.ccy-separator {
+  color: var(--muted);
+}
+
+.ccy-venue {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
 .row-actions-button {
   display: inline-flex;
   align-items: center;

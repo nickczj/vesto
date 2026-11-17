@@ -48,6 +48,20 @@ describe('instrument resolution from a quote', () => {
     expect(result.message).toContain('HKD')
   })
 
+  it('normalizes a provider market alias before it reaches the form', () => {
+    const result = resolutionFromQuote(quote({
+      symbol: '9988.HK',
+      market: 'HKG',
+      currency: 'HKD',
+      price: 85.45,
+    }))
+
+    expect(result.status).toBe('resolved')
+    expect(result.quote?.market).toBe('SEHK')
+    expect(result.message).toContain('SEHK')
+    expect(result.message).not.toContain('HKG')
+  })
+
   it('rejects a quote in a currency the sheet cannot value', () => {
     const result = resolutionFromQuote(quote({ currency: 'GBp' }))
 
