@@ -15,17 +15,22 @@ Mockup (private canvas, sample figures only):
 
 | Slice | Scope | Branch | Status |
 | --- | --- | --- | --- |
-| 1 | Foundations: fix what is broken (F1–F4) | `ui-redesign-foundations` | Committed; no PR yet |
-| 2 | Keyboard, failure states, page basics (F5–F8) | `ui-redesign-foundations` | Committed; no PR yet |
-| 3 | Ledger table (U1, U4, U5, U7) | `ui-redesign-foundations` | Committed |
-| 4 | Header and net-worth hero (U2, U3) | `ui-redesign-foundations` | Committed |
-| 5 | Palette, type scale, flatter surfaces | `ui-redesign-foundations` | Committed |
-| 6 | Add/edit dialog (U6) | `ui-redesign-foundations` | Committed |
+| 1 | Foundations: fix what is broken (F1–F4) | `ui-redesign-foundations` | Merged in #24 |
+| 2 | Keyboard, failure states, page basics (F5–F8) | `ui-redesign-foundations` | Merged in #24 |
+| 3 | Ledger table (U1, U4, U5, U7) | `ui-redesign-foundations` | Merged in #24 |
+| 4 | Header and net-worth hero (U2, U3) | `ui-redesign-foundations` | Merged in #24 |
+| 5 | Palette, type scale, flatter surfaces | `ui-redesign-foundations` | Merged in #24 |
+| 6 | Add/edit dialog (U6) | `ui-redesign-foundations` | Merged in #24 |
 
-All slices are developed on `ui-redesign-foundations`, in this order, with at
-least one commit per slice. The PR is opened on request, not per slice. Slices
-1 and 2 change behaviour without changing the look, so they do not depend on
-any decision below.
+All six slices were developed on `ui-redesign-foundations`, in this order, with
+at least one commit per slice, then squash-merged to `main` as `d945565`
+(PR #24) on 2026-11-17 and deployed (run `44042860285`). The branch is deleted
+locally and on the remote. Slices 1 and 2 changed behaviour without changing
+the look, so they did not depend on any decision below.
+
+Outstanding after the merge: a look at the live page, and the cold first paint
+in the opposite theme that slice 2 skipped. The deployed image is tagged
+`sha-d945565ea00a765c7f1195b35e758d81f804fefd`.
 
 ## Direction
 
@@ -407,3 +412,8 @@ draw a chart; a fresh copy has none until the snapshot sidecar has run twice.
 - **2026-11-17** — All six slices committed on `ui-redesign-foundations`. The
   branch is local only and no PR is open; the redesign is complete in code,
   pending review.
+- **2026-11-17** — PR #24 squash-merged to `main` as `d945565` and deployed
+  (run `44042860285`). The tree at `4616d2b` is identical to `d945565`, so the
+  squash lost nothing. The branch is deleted locally and on the remote. Still
+  outstanding: the post-merge look at the live page, and the cold first paint
+  in the opposite theme that slice 2 skipped.
