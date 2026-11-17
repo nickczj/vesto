@@ -35,12 +35,26 @@ describe('instrument resolution from a quote', () => {
     expect(result.message).toContain('USD')
   })
 
+  it('resolves a HKD quote now that HKD is a supported currency', () => {
+    const result = resolutionFromQuote(quote({
+      symbol: '0700.HK',
+      market: 'SEHK',
+      currency: 'HKD',
+      price: 600,
+    }))
+
+    expect(result.status).toBe('resolved')
+    expect(result.quote?.currency).toBe('HKD')
+    expect(result.message).toContain('HKD')
+  })
+
   it('rejects a quote in a currency the sheet cannot value', () => {
     const result = resolutionFromQuote(quote({ currency: 'GBp' }))
 
     expect(result.status).toBe('not_found')
     expect(result.quote).toBeNull()
     expect(result.message).toContain('GBp')
+    expect(result.message).toContain('HKD')
   })
 
   it('does not resolve to an unusable price', () => {

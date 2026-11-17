@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { appSettings } from '~~/server/database/schema'
 import { useDb } from '~~/server/utils/db'
-import type { FxSnapshot, QuoteSnapshot } from '~~/shared/types/balance-sheet'
+import { CURRENCIES, type CurrencyCode, type FxSnapshot, type QuoteSnapshot } from '~~/shared/types/balance-sheet'
 
 /**
  * Durable cache for the last-known FX and quote snapshots.
@@ -77,8 +77,8 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function isCurrency(value: unknown): value is QuoteSnapshot['currency'] {
-  return value === 'USD' || value === 'SGD'
+function isCurrency(value: unknown): value is CurrencyCode {
+  return typeof value === 'string' && (CURRENCIES as readonly string[]).includes(value)
 }
 
 function isQuoteSnapshot(value: unknown): value is QuoteSnapshot {
@@ -107,6 +107,16 @@ function isCachedQuoteRecord(value: unknown): value is CachedQuoteRecord {
     && isQuoteSnapshot(record.snapshot)
 }
 
+function isRateMap(value: unknown): value is FxSnapshot['sgdPerUnit'] {
+  // Older payloads predate multi-currency and have no map at all.
+  if (value === undefined) return true
+  if (!value || typeof value !== 'object') return false
+
+  return Object.entries(value as Record<string, unknown>).every(
+    ([currency, rate]) => isCurrency(currency) && isFiniteNumber(rate) && rate > 0,
+  )
+}
+
 function isFxSnapshot(value: unknown): value is FxSnapshot {
   if (!value || typeof value !== 'object') return false
   const snapshot = value as Partial<FxSnapshot>
@@ -117,9 +127,25 @@ function isFxSnapshot(value: unknown): value is FxSnapshot {
     && snapshot.usdToSgd > 0
     && isFiniteNumber(snapshot.sgdToUsd)
     && snapshot.sgdToUsd > 0
+    && isRateMap(snapshot.sgdPerUnit)
     && typeof snapshot.asOf === 'string'
     && typeof snapshot.fetchedAt === 'string'
     && typeof snapshot.source === 'string'
+}
+
+/**
+ * A snapshot written before HKD was supported has only the headline pair.
+ * Fill the map from it so the cached USD/SGD rate still works after a restart;
+ * any currency it does not cover is simply unknown until the next fetch.
+ */
+function normalizeFxSnapshot(snapshot: FxSnapshot): FxSnapshot {
+  const sgdPerUnit: FxSnapshot['sgdPerUnit'] = {
+    ...snapshot.sgdPerUnit,
+    SGD: 1,
+    USD: snapshot.sgdPerUnit?.USD ?? snapshot.usdToSgd,
+  }
+
+  return { ...snapshot, sgdPerUnit }
 }
 
 function isCachedFxRecord(value: unknown): value is CachedFxRecord {
@@ -143,7 +169,10 @@ export function loadCachedFx(): CachedFxRecord | null {
     return null
   }
 
-  return payload.fx
+  return {
+    ...payload.fx,
+    snapshot: normalizeFxSnapshot(payload.fx.snapshot),
+  }
 }
 
 export function saveCachedQuotes(quotes: CachedQuoteRecord[], now = Date.now()): void {

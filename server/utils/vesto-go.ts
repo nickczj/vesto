@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import type { CurrencyCode, FxSnapshot, QuoteSnapshot } from '~~/shared/types/balance-sheet'
+import type { CurrencyCode, QuoteSnapshot } from '~~/shared/types/balance-sheet'
 import {
   SOURCE_STATES,
   type SourceHealth,
@@ -76,6 +76,29 @@ interface FxRateResponse {
   isStale?: boolean
 }
 
+interface FxRateBatchResponse {
+  quote: string
+  results: Array<{
+    base: string
+    status: number
+    rate?: FxRateResponse
+    error?: string
+  }>
+}
+
+/**
+ * The SGD value of one unit of each requested currency, as far as the batch
+ * could price it. A currency missing from `sgdPerUnit` has no known rate: call
+ * sites must treat rows in it as unpriced, never as 1:1.
+ */
+export interface FxRateSet {
+  sgdPerUnit: Partial<Record<CurrencyCode, number>>
+  errors: Array<{ currency: string, message: string }>
+  asOf: string | null
+  source: string | null
+  isStale: boolean
+}
+
 interface SourceHealthWireItem {
   name: string
   type?: string
@@ -129,6 +152,8 @@ export function canonicalCurrency(raw: string): CurrencyCode | null {
       return 'USD'
     case 'SGD':
       return 'SGD'
+    case 'HKD':
+      return 'HKD'
     default:
       return null
   }
@@ -346,30 +371,68 @@ export async function fetchSourceHealth(markets?: string[]): Promise<SourceHealt
   }
 }
 
-export async function fetchUsdToSgdFx(): Promise<FxSnapshot> {
-  const payload = await $fetch<FxRateResponse>('/api/market/fx', {
+export async function fetchFxRatesToSgd(currencies: string[]): Promise<FxRateSet> {
+  const bases = [...new Set(
+    currencies
+      .map(currency => currency.trim().toUpperCase())
+      .filter(currency => currency.length > 0 && currency !== 'SGD'),
+  )].sort()
+
+  const rates: FxRateSet = {
+    sgdPerUnit: {},
+    errors: [],
+    asOf: null,
+    source: null,
+    isStale: false,
+  }
+
+  if (bases.length === 0) {
+    return rates
+  }
+
+  const payload = await $fetch<FxRateBatchResponse>('/api/market/fx/batch', {
     baseURL: getBaseUrl(),
-    query: {
-      base: 'USD',
-      quote: 'SGD',
-    },
+    method: 'POST',
+    query: { quote: 'SGD' },
+    body: bases,
     retry: 0,
     timeout: FX_REQUEST_TIMEOUT_MS,
   })
 
-  const usdToSgd = Number(payload.rate)
-  if (!Number.isFinite(usdToSgd) || usdToSgd <= 0) {
-    throw createError({ statusCode: 502, message: 'invalid USD/SGD FX response' })
+  for (const item of payload.results || []) {
+    const currency = canonicalCurrency(item.base)
+
+    if (!currency) {
+      rates.errors.push({
+        currency: item.base || '(empty)',
+        message: 'unsupported currency code',
+      })
+      continue
+    }
+
+    if (item.status < 200 || item.status >= 300 || !item.rate) {
+      rates.errors.push({
+        currency,
+        message: item.error || `status ${item.status}`,
+      })
+      continue
+    }
+
+    const rate = Number(item.rate.rate)
+    if (!Number.isFinite(rate) || rate <= 0) {
+      rates.errors.push({ currency, message: 'invalid FX rate' })
+      continue
+    }
+
+    rates.sgdPerUnit[currency] = rate
+    // Every pair comes from the same daily reference publication. Keeping the
+    // oldest date means the page never claims a fresher rate than it has.
+    if (!rates.asOf || (item.rate.asOf && item.rate.asOf < rates.asOf)) {
+      rates.asOf = item.rate.asOf || rates.asOf
+    }
+    rates.source = rates.source || item.rate.source || null
+    rates.isStale = rates.isStale || item.rate.isStale === true
   }
 
-  return {
-    base: 'USD',
-    quote: 'SGD',
-    usdToSgd,
-    sgdToUsd: 1 / usdToSgd,
-    asOf: payload.asOf,
-    fetchedAt: new Date().toISOString(),
-    source: payload.source,
-    isStale: payload.isStale === true,
-  }
+  return rates
 }

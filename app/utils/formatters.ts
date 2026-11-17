@@ -3,6 +3,7 @@ import type { CurrencyCode } from '~~/shared/types/balance-sheet'
 const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   SGD: 'S$',
   USD: 'US$',
+  HKD: 'HK$',
 }
 
 export function formatCurrency(value: number, currency: CurrencyCode, compact = false): string {
@@ -14,6 +15,10 @@ export function formatCurrency(value: number, currency: CurrencyCode, compact = 
   }).format(Math.abs(amount))
 
   return `${amount < 0 ? '-' : ''}${CURRENCY_SYMBOLS[currency]}${body}`
+}
+
+export function currencySymbol(currency: CurrencyCode): string {
+  return CURRENCY_SYMBOLS[currency]
 }
 
 export function formatSignedCurrency(value: number, currency: CurrencyCode): string {

@@ -1,4 +1,4 @@
-export const CURRENCIES = ['USD', 'SGD'] as const
+export const CURRENCIES = ['USD', 'SGD', 'HKD'] as const
 export type CurrencyCode = (typeof CURRENCIES)[number]
 
 export const ASSET_KINDS = ['investment', 'cpf', 'cash_savings', 'manual'] as const
@@ -66,10 +66,20 @@ export interface QuoteSnapshot {
 }
 
 export interface FxSnapshot {
+  /**
+   * The headline pair. USD and SGD stay the only totals currencies; every other
+   * currency is converted through `sgdPerUnit` before it reaches a total.
+   */
   base: 'USD'
   quote: 'SGD'
   usdToSgd: number
   sgdToUsd: number
+  /**
+   * SGD per one unit of each currency this sheet needs, including USD and SGD.
+   * A missing entry means the rate is unknown; it is never treated as 1:1, so
+   * rows in that currency become unpriced instead of silently misvalued.
+   */
+  sgdPerUnit: Partial<Record<CurrencyCode, number>>
   asOf: string
   fetchedAt: string
   source: string

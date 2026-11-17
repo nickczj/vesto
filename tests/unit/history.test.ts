@@ -76,6 +76,7 @@ function sheet(overrides: Partial<BalanceSheetResponse> = {}): BalanceSheetRespo
       quote: 'SGD',
       usdToSgd: 1.3,
       sgdToUsd: 1 / 1.3,
+      sgdPerUnit: { USD: 1.3, SGD: 1 },
       asOf: '2026-11-15',
       fetchedAt: '2026-11-16T00:00:00.000Z',
       source: 'frankfurter',

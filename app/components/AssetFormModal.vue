@@ -73,16 +73,18 @@
           </label>
 
           <label>
-            <span>Cost per unit</span>
+            <span>Cost per unit <span class="form-optional">{{ form.currency }}</span></span>
             <input v-model.number="form.costBasisUnitPrice" class="bs-input" type="number" step="0.0001" min="0">
           </label>
 
           <label>
             <span>Currency</span>
             <select v-model="form.currency" class="bs-input">
-              <option value="USD">USD</option>
-              <option value="SGD">SGD</option>
+              <option v-for="currency in CURRENCIES" :key="currency" :value="currency">
+                {{ currency }}
+              </option>
             </select>
+            <small class="muted">The currency the price is quoted in.</small>
           </label>
         </div>
 
@@ -114,7 +116,7 @@
         </div>
 
         <label class="form-span-2">
-          <span>Manual price / unit</span>
+          <span>Manual price / unit <span class="form-optional">{{ form.currency }}</span></span>
           <input
             v-model.number="form.manualPrice"
             class="bs-input"
@@ -145,34 +147,50 @@
           </label>
 
           <label>
-            <span>Amount</span>
+            <span>Amount <span class="form-optional">{{ form.currency }}</span></span>
             <input v-model.number="form.amount" class="bs-input" type="number" step="0.01" min="0" required>
           </label>
 
           <label>
             <span>Currency</span>
             <select v-model="form.currency" class="bs-input">
-              <option value="USD">USD</option>
-              <option value="SGD">SGD</option>
+              <option v-for="currency in CURRENCIES" :key="currency" :value="currency">
+                {{ currency }}
+              </option>
             </select>
           </label>
         </div>
 
         <div v-else class="form-row form-row-two form-span-2">
           <label>
-            <span>Amount</span>
+            <span>Amount <span class="form-optional">{{ form.currency }}</span></span>
             <input v-model.number="form.amount" class="bs-input" type="number" step="0.01" min="0" required>
           </label>
 
           <label>
             <span>Currency</span>
             <select v-model="form.currency" class="bs-input">
-              <option value="USD">USD</option>
-              <option value="SGD">SGD</option>
+              <option v-for="currency in CURRENCIES" :key="currency" :value="currency">
+                {{ currency }}
+              </option>
             </select>
           </label>
         </div>
       </template>
+
+      <div v-if="currencyChanged" class="form-span-2 form-currency-warning">
+        <p class="form-resolution is-warn">
+          <span class="resolution-mark" aria-hidden="true">!</span>
+          <span>
+            Changing the currency does not convert the cost basis or manual price.
+            They will be read as {{ form.currency }} amounts.
+          </span>
+        </p>
+        <label class="form-confirm">
+          <input v-model="currencyChangeAcknowledged" type="checkbox">
+          <span>I understand the amounts are now {{ form.currency }} amounts.</span>
+        </label>
+      </div>
 
       <label class="form-span-2">
         <span>Notes</span>
@@ -196,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import type { AssetEntry } from '~~/shared/types/balance-sheet'
+import { CURRENCIES, type AssetEntry } from '~~/shared/types/balance-sheet'
 import type { InstrumentResolution } from '~~/shared/types/instrument'
 import { formatCurrency } from '~/utils/formatters'
 
@@ -258,6 +276,15 @@ const resolution = ref<InstrumentResolution | null>(null)
 const resolvedKey = ref<string | null>(null)
 const resolving = ref(false)
 const submitError = ref<string | null>(null)
+const currencyChangeAcknowledged = ref(false)
+
+const currencyChanged = computed(
+  () => props.initial !== null && form.currency !== props.initial.currency,
+)
+
+watch(() => form.currency, () => {
+  currencyChangeAcknowledged.value = false
+})
 
 const modalTitle = computed(() => (props.initial ? 'Edit asset' : 'Add asset'))
 const primaryLabel = computed(() => (props.initial ? 'Save changes' : 'Add asset'))
@@ -302,6 +329,7 @@ function setValuationMode(mode: AssetEntry['valuationMode']) {
 function resetForm() {
   resetResolution()
   resolving.value = false
+  currencyChangeAcknowledged.value = false
 
   if (props.initial) {
     form.kind = props.initial.kind
@@ -391,6 +419,11 @@ function optionalNumber(value: unknown): number | null {
 
 async function submitForm() {
   submitError.value = null
+
+  if (currencyChanged.value && !currencyChangeAcknowledged.value) {
+    submitError.value = 'Confirm that the amounts are entered in the new currency before saving.'
+    return
+  }
 
   if (form.kind === 'investment' && form.valuationMode === 'live_preferred') {
     if (!form.symbol?.trim()) {

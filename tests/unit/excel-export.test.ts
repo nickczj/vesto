@@ -79,6 +79,7 @@ const sampleSheet: BalanceSheetResponse = {
     quote: 'SGD',
     usdToSgd: 1.35,
     sgdToUsd: 0.74074074,
+    sgdPerUnit: { USD: 1.35, SGD: 1 },
     asOf: '2026-04-13',
     fetchedAt: '2026-04-13T10:00:00.000Z',
     source: 'vesto-go',
@@ -90,21 +91,25 @@ const sampleSheet: BalanceSheetResponse = {
     priced: 1,
     stale: 0,
     manualPriced: 0,
+    unpriced: 0,
   },
   warnings: [],
 }
 
 describe('excel export helpers', () => {
-  it('drops native currency from detail rows and appends a net worth summary row', () => {
+  it('names the native currency on detail rows and appends a net worth summary row', () => {
     const rows = toDetailRows(sampleSheet)
 
     expect(rows).toHaveLength(3)
     expect(rows[0]).not.toHaveProperty('NativeCurrency')
+    expect(rows[0]?.Currency).toBe('USD')
     expect(rows[0]?.Quantity).toBe(10)
+    expect(rows[1]?.Currency).toBe('SGD')
     expect(rows[1]?.NativeAmount).toBe(-300)
     expect(rows[2]).toEqual({
       Section: 'Summary',
       Name: 'Net Worth',
+      Currency: '',
       Category: '',
       Type: '',
       Quantity: '',
@@ -123,10 +128,12 @@ describe('excel export helpers', () => {
     })
   })
 
-  it('keeps net worth in the summary sheet export', () => {
+  it('keeps net worth and every FX rate in the summary sheet export', () => {
     const rows = toSummaryRows(sampleSheet)
 
     expect(rows).toContainEqual(['NetWorthUSD', 977.78])
     expect(rows).toContainEqual(['NetWorthSGD', 1320])
+    expect(rows).toContainEqual(['FxSgdPerUnit_USD', 1.35])
+    expect(rows).toContainEqual(['FxSgdPerUnit_SGD', 1])
   })
 })

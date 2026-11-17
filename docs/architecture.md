@@ -24,7 +24,8 @@
 2. Nuxt API validates request and writes SQLite rows.
 3. Balance sheet endpoint reads rows.
 4. For investment rows, endpoint fetches quote snapshots (batch).
-5. Endpoint fetches canonical `USD->SGD` FX snapshot and derives inverse.
+5. Endpoint fetches one SGD rate per currency the sheet holds, plus USD. The
+   rates are kept as `sgdPerUnit` and USD/SGD is the headline pair.
 6. Service computes row-level native/USD/SGD values.
 7. Service computes section totals, total assets, total liabilities, and net worth.
 8. UI renders grouped table and totals.
@@ -38,7 +39,9 @@
     0.00 when the price did not come from a market quote
 - A quote in a currency that is not the row's fixed currency is ignored with a
   warning; the row falls back rather than being relabelled
-- If FX is unavailable:
+- If one optional FX pair is unavailable, only rows in that currency become
+  `unpriced`; the rest of the sheet keeps its USD/SGD totals
+- If the USD/SGD pair is unavailable:
   - reuse the persisted snapshot, marked stale
   - if none has ever been stored, render native amounts only with an "FX
     unavailable" banner. There is no 1:1 fallback and no partial total.

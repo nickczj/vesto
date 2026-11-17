@@ -25,9 +25,10 @@ describe('formatRecentTimestamp', () => {
 })
 
 describe('currency formatting', () => {
-  it('uses the Singapore symbols', () => {
+  it('uses the region symbols', () => {
     expect(formatCurrency(1234.5, 'SGD')).toBe('S$1,234.50')
     expect(formatCurrency(1234.5, 'USD')).toBe('US$1,234.50')
+    expect(formatCurrency(1234.5, 'HKD')).toBe('HK$1,234.50')
   })
 })
 
