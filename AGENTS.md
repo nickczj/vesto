@@ -75,8 +75,8 @@
   time. Incomplete days are counted but excluded from the chart and drawdown.
 - Say that history starts when the series starts and cannot be backfilled.
 - View preferences live in the header `View` popover: density, KPI card count,
-  primary currency, section visibility, sticky header and sticky name column.
-  The existing Source/Native column toggles use the same store.
+  primary currency, section visibility, columns (Source/Native), sticky header
+  and sticky name column. The column toggles use the same store.
 - Preferences are per device: `localStorage` is the source of truth, mirrored to
   a small cookie so SSR renders the same first paint. Never move them to
   `app_settings`; there is one Basic-auth identity and no user accounts.

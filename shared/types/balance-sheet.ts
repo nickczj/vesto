@@ -85,6 +85,8 @@ export interface BalanceSheetRow {
   category: string
   nativeCurrency: CurrencyCode
   nativeAmount: number
+  /** Units held, for investments that have one. Null for every other row. */
+  quantity: number | null
   boughtUnitPrice: number | null
   currentUnitPrice: number | null
   costBasisNative: number | null

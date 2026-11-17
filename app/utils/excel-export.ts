@@ -3,7 +3,7 @@ import type { BalanceSection, BalanceSheetResponse, BalanceSheetRow } from '~~/s
 const SECTION_LABELS: Record<BalanceSection, string> = {
   investments: 'Investments',
   cpf: 'CPF',
-  cash_savings: 'Cash / Savings',
+  cash_savings: 'Cash and savings',
   liabilities: 'Liabilities',
 }
 
@@ -31,6 +31,7 @@ type DetailExportRow = {
   Name: string
   Category: string
   Type: string
+  Quantity: number | ''
   Source: string
   AsOf: string
   NativeAmount: number | ''
@@ -57,6 +58,7 @@ function toDetailRow(row: BalanceSheetRow): DetailExportRow {
     Name: row.name,
     Category: row.category,
     Type: row.entityType,
+    Quantity: row.quantity ?? '',
     Source: row.source,
     AsOf: row.asOf || '',
     NativeAmount: !priced && row.nativeAmount === 0 ? '' : signedAmount(row, row.nativeAmount),
@@ -80,6 +82,7 @@ export function toDetailRows(sheet: BalanceSheetResponse): DetailExportRow[] {
       Name: 'Net Worth',
       Category: '',
       Type: '',
+      Quantity: '',
       Source: '',
       AsOf: sheet.generatedAt,
       NativeAmount: '',
@@ -147,7 +150,7 @@ export async function exportBalanceSheetToExcel(sheet: BalanceSheetResponse) {
   const workbook = XLSX.utils.book_new()
 
   const detailSheet = XLSX.utils.json_to_sheet(toDetailRows(sheet))
-  withColumns(detailSheet as Record<string, unknown>, [18, 28, 20, 10, 10, 22, 15, 15, 15, 14, 14, 16, 12, 12, 10, 32])
+  withColumns(detailSheet as Record<string, unknown>, [18, 28, 20, 10, 10, 10, 22, 15, 15, 15, 14, 14, 16, 12, 12, 10, 32])
   XLSX.utils.book_append_sheet(workbook, detailSheet, 'Rows')
 
   const summarySheet = XLSX.utils.aoa_to_sheet(toSummaryRows(sheet))

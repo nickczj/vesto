@@ -17,7 +17,7 @@ Mockup (private canvas, sample figures only):
 | --- | --- | --- | --- |
 | 1 | Foundations: fix what is broken (F1–F4) | `ui-redesign-foundations` | Committed; no PR yet |
 | 2 | Keyboard, failure states, page basics (F5–F8) | `ui-redesign-foundations` | Committed; no PR yet |
-| 3 | Ledger table (U1, U4, U5, U7) | — | Not started |
+| 3 | Ledger table (U1, U4, U5, U7) | `ui-redesign-foundations` | Committed |
 | 4 | Header and net-worth hero (U2, U3) | — | Not started |
 | 5 | Palette, type scale, flatter surfaces | — | Not started |
 | 6 | Add/edit dialog (U6) | — | Not started |
@@ -124,9 +124,9 @@ How each was done, and what is left open:
   not a scroll container. `.page-shell` got `grid-template-columns:
   minmax(0, 1fr)`; without it the clipped shell widened the whole page to the
   table's 980px minimum on a narrow window.
-  **Known limit:** below about 1015px wide the table scrolls sideways inside
-  its shell and the header does not stick. The ledger table in slice 3 should
-  drop the 980px minimum.
+  **Known limit:** while the table is wider than its shell it scrolls sideways
+  inside the shell and the header does not stick. Slice 3 dropped the 980px
+  minimum: the ledger fits at 1024px, and below about 900px it scrolls.
 - **F3** `app/utils/section-sort.ts` holds the comparator. TanStack negates a
   sorting function's result for a descending sort, so the section order and
   "empty last" are negated first. `tests/unit/section-sort.test.ts` runs it
@@ -167,12 +167,40 @@ How each was done:
 
 ### Slice 3 — Ledger table
 
-- [ ] Right-aligned figures; currency in the column header.
-- [ ] Subtotals, total assets, total liabilities and net worth in their columns,
+- [x] Right-aligned figures; currency in the column header.
+- [x] Subtotals, total assets, total liabilities and net worth in their columns,
       with the rules described above.
-- [ ] Padded section headers; one placeholder for "no value".
-- [ ] Row actions in a menu; the delete confirm names the row.
-- [ ] Quantity, return and weight columns (needs a decision, below).
+- [x] Padded section headers; one placeholder for "no value".
+- [x] Row actions in a menu; the delete confirm names the row.
+- [x] Quantity, return and weight columns.
+
+How each was done:
+
+- **Columns.** `Holding` carries the ticker in muted text; `Ccy`, `Quantity`,
+  `Unit cost`, `Unit price` (stale dot), `Value USD`, `Value SGD`,
+  `Gain/loss SGD`, `Return` and `Weight` follow. Figures are right-aligned and
+  tabular; the currency is named in the header, so cells are bare numbers.
+  `BalanceSheetRow` now carries `quantity`, which the Excel detail sheet also
+  exports.
+- **Totals.** Subtotals, total assets, total liabilities and net worth are real
+  cells. A single rule sits above each subtotal and total; a double rule sits
+  under net worth. Total assets is rendered after the last asset section, the
+  way a balance sheet reads. Parentheses mark losses and liabilities, gains
+  carry a plus, and weights are unsigned.
+- **Derived values.** Return is `P&L / cost basis` and weight is the row's
+  share of total assets. Rows that never had a market price (manual prices,
+  cash, CPF) stay out of return rather than diluting it. The rules live in
+  `app/utils/ledger.ts` with unit tests.
+- **Placeholder.** `—` is the single placeholder for a value that applies but
+  is unknown (unpriced, no cost basis, no FX). A blank cell means the column
+  does not apply to that row at all, such as quantity on a liability.
+- **Rows.** Section labels are padded. Each row has one menu with Edit and
+  Delete, and the delete confirm names the holding. The Source and Native
+  toggles moved from the table toolbar into the View popover; the store is
+  unchanged.
+- **Width.** The table no longer has a 980px minimum. It fits at 1024px and
+  scrolls sideways below that; the sticky-header limit described under slice 1
+  still applies while it scrolls.
 
 ### Slice 4 — Header and net-worth hero
 
@@ -192,17 +220,18 @@ How each was done:
 - [ ] Resolve the ticker before saving and say what it resolved to.
 - [ ] One clear primary button.
 
-## Decisions needed
+## Decisions
 
-These were added in the mockup and are not agreed yet. None blocks slices 1–2.
+Agreed 2026-11-17 from the mockup review. All follow the mockup.
 
-| # | Question | Affects |
-| --- | --- | --- |
-| Q1 | Add quantity, return % and portfolio weight columns? Quantity is stored; the other two are derived. | Slice 3 |
-| Q2 | Show "change since the 08:00 snapshot" in the headline? It is current net worth minus the latest history row. | Slice 4 |
-| Q3 | Add a 30 days / 90 days / 1 year / All switch to the chart? `GET /api/history?days=` already takes a window. | Slice 4 |
-| Q4 | Replace "Add Asset" and "Add Liability" with one "Add" menu? | Slice 4 |
-| Q5 | Keep the current green primary or move to ink as the only action colour? | Slice 5 |
+| # | Question | Decision | Affects |
+| --- | --- | --- | --- |
+| Q1 | Add quantity, return % and portfolio weight columns? | Yes, all three, always visible. Quantity is stored; return and weight are derived in the UI. Source/Native stay optional. | Slice 3 |
+| Q2 | Show "change since the 08:00 snapshot" in the headline? | Yes: current net worth minus the latest complete history row. The label names the date when the latest row is not today; hidden when there is no history. | Slice 4 |
+| Q3 | Add a 30 days / 90 days / 1 year / All switch to the chart? | Yes. The full series is fetched once and the chart is filtered client-side, so the peak and drawdown remain all-time and do not change with the range. | Slice 4 |
+| Q4 | Replace "Add Asset" and "Add Liability" with one "Add" menu? | Yes: one ink Add menu with "Add asset" and "Add liability". | Slice 4 |
+| Q5 | Keep the current green primary or move to ink as the only action colour? | Ink. Green is gain, red is loss, amber is stale; nothing else is coloured. | Slice 5 |
+| Q6 | Should the status chip merge provider health with the price time? | Yes: one market-data chip with the last call's outcome and when prices arrived; its panel still shows provider health. Row valuation state stays in the table. | Slice 4 |
 
 ## Contract changes
 
@@ -213,7 +242,8 @@ Later slices change lines in the `AGENTS.md` UI contract. Each must update
 | --- | --- | --- |
 | "The net-worth history card sits above the table." | History moves beside the headline. | 4 |
 | View popover: "KPI card count" | No KPI cards remain, so the setting goes. | 4 |
-| "The existing Source/Native column toggles use the same store." | Toggles move into the View popover; the store is unchanged. | 3 |
+| "The existing Source/Native column toggles use the same store." | Toggles live in the View popover; the store is unchanged. | 3 |
+| "The header has one provider-status chip. It reports provider health…" | One market-data chip: the last call's outcome and when prices arrived. Its panel still reports provider health; row valuation state stays in the table. | 4 |
 | "Use modal forms for CRUD." | Unchanged; the dialog is still modal. | 6 |
 
 Unchanged throughout: SGD headline for history, complete days only, the
@@ -255,3 +285,14 @@ draw a chart; a fresh copy has none until the snapshot sidecar has run twice.
   `npm test` (84), `npm run typecheck` and `npm run build` pass. Not run:
   Playwright e2e. Not checked: the first paint on a cold load in light mode on
   a dark OS, only that the inline script is in the served `<head>`.
+- **2026-11-17** — Slice 3 implemented and committed. The ledger table has
+  ticker-aware holdings, right-aligned figures, real-column subtotals and
+  totals, padded sections, one placeholder, and a per-row actions menu; the
+  Source/Native toggles moved into the View popover. Checked in the browser at
+  1440, 1024, 900 and 390px in both themes: the table fits at 1024px, scrolls
+  inside its shell below that, the sticky header still sticks at 1440px, totals
+  and rules line up, and the row menu offers Edit/Delete. `npm test` (94, 10
+  new), `npm run typecheck` and `npm run build` pass. Not run: Playwright e2e.
+  The browser check used cached stale quotes (vesto-go was not running), which
+  is why every source shows `· stale`; that is the expected fallback, not a
+  regression.

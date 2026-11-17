@@ -72,10 +72,10 @@
       :rows="tableRows"
       :totals="sheet.totals"
       :loading="isLoading"
-      @edit-asset="openEditAsset"
-      @delete-asset="onDeleteAsset"
-      @edit-liability="openEditLiability"
-      @delete-liability="onDeleteLiability"
+      @edit-asset="onEditAssetRow"
+      @delete-asset="onDeleteAssetRow"
+      @edit-liability="onEditLiabilityRow"
+      @delete-liability="onDeleteLiabilityRow"
     />
 
     <AssetFormModal
@@ -93,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import type { AssetEntry, LiabilityEntry } from '~~/shared/types/balance-sheet'
+import type { AssetEntry, BalanceSheetRow, LiabilityEntry } from '~~/shared/types/balance-sheet'
 import { exportBalanceSheetToExcel } from '~/utils/excel-export'
 import { formatCurrency, formatRecentTimestamp } from '~/utils/formatters'
 
@@ -235,6 +235,14 @@ function openEditLiability(id: number) {
   liabilityModalOpen.value = true
 }
 
+function onEditAssetRow(row: BalanceSheetRow) {
+  openEditAsset(row.entityId)
+}
+
+function onEditLiabilityRow(row: BalanceSheetRow) {
+  openEditLiability(row.entityId)
+}
+
 async function onSubmitAsset(payload: {
   kind: AssetEntry['kind']
   name: string
@@ -276,14 +284,26 @@ async function onSubmitLiability(payload: {
   liabilityModalOpen.value = false
 }
 
-async function onDeleteAsset(id: number) {
-  if (!window.confirm('Delete this asset?')) return
-  await removeAsset(id)
+async function onDeleteAssetRow(row: BalanceSheetRow) {
+  if (!window.confirm(`Delete "${row.name}"? This cannot be undone.`)) return
+
+  try {
+    await removeAsset(row.entityId)
+  }
+  catch {
+    // removeAsset already put a plain sentence in the page's error banner.
+  }
 }
 
-async function onDeleteLiability(id: number) {
-  if (!window.confirm('Delete this liability?')) return
-  await removeLiability(id)
+async function onDeleteLiabilityRow(row: BalanceSheetRow) {
+  if (!window.confirm(`Delete "${row.name}"? This cannot be undone.`)) return
+
+  try {
+    await removeLiability(row.entityId)
+  }
+  catch {
+    // removeLiability already put a plain sentence in the page's error banner.
+  }
 }
 
 async function onRefresh() {

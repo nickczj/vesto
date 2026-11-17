@@ -11,7 +11,7 @@ export type ViewSectionKey = keyof ViewPreferences['sections']
 
 const SECTION_LABELS: Record<ViewSectionKey, string> = {
   cpf: 'CPF',
-  cashSavings: 'Cash / Savings',
+  cashSavings: 'Cash and savings',
   liabilities: 'Liabilities',
 }
 

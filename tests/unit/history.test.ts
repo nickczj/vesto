@@ -34,6 +34,7 @@ function row(source: BalanceSheetRow['source']): BalanceSheetRow {
     category: 'investment',
     nativeCurrency: 'USD',
     nativeAmount: 0,
+    quantity: null,
     boughtUnitPrice: null,
     currentUnitPrice: null,
     costBasisNative: null,

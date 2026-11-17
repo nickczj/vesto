@@ -331,31 +331,10 @@ body {
   overflow: clip;
 }
 
-.table-toolbar {
-  display: flex;
-  gap: 11px;
-  align-items: center;
-  padding: 7px 11px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-elevated);
-}
-
-.toolbar-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
-.toolbar-toggle input {
-  accent-color: var(--primary);
-}
-
+/* The table is the page: no toolbar above it. Column toggles live in View. */
 .balance-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 980px;
   line-height: 1.2;
 }
 
@@ -390,15 +369,15 @@ body {
   background: var(--liability-row-bg);
 }
 
-.table-shell.sticky-name .balance-table .footer-row td:first-child {
+.table-shell.sticky-name .balance-table .assets-total-row td:first-child {
   background: var(--footer-assets-bg);
 }
 
-.table-shell.sticky-name .balance-table .footer-row.liabilities-row td:first-child {
+.table-shell.sticky-name .balance-table .liabilities-total-row td:first-child {
   background: var(--footer-liabilities-bg);
 }
 
-.table-shell.sticky-name .balance-table .footer-row.networth-row td:first-child {
+.table-shell.sticky-name .balance-table .networth-row td:first-child {
   background: var(--footer-networth-bg);
 }
 
@@ -432,19 +411,34 @@ body {
   opacity: 0.8;
 }
 
+.table-header.is-numeric {
+  text-align: right;
+}
+
+.table-header.is-numeric .sort-button {
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.table-header.is-actions {
+  width: 34px;
+}
+
 .pnl-value {
   font-weight: 600;
 }
 
-.pnl-value.pnl-profit {
+/* The tones are used on table cells and on subtotal cells, so they cannot
+   depend on `.pnl-value`. */
+.pnl-profit {
   color: var(--pnl-profit);
 }
 
-.pnl-value.pnl-loss {
+.pnl-loss {
   color: var(--pnl-loss);
 }
 
-.pnl-value.pnl-flat {
+.pnl-flat {
   color: var(--muted);
 }
 
@@ -453,6 +447,22 @@ body {
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
   font-size: 0.88rem;
+}
+
+.table-cell.is-numeric {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table-cell.is-actions {
+  width: 34px;
+  text-align: right;
+  padding-right: 5px;
+}
+
+.placeholder,
+.weight-value {
+  color: var(--muted);
 }
 
 .price-cell {
@@ -485,6 +495,7 @@ body {
 .section-row td {
   background: var(--section-bg);
   border-top: 1px solid var(--border);
+  padding: 17px 9px 6px;
 }
 
 .section-header {
@@ -502,29 +513,30 @@ body {
   opacity: 0.65;
 }
 
+/* A single rule above every subtotal and total; a double rule under net worth. */
+.subtotal-row td,
+.total-row td {
+  font-weight: 600;
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+}
+
 .subtotal-row td {
   background: var(--surface-muted);
-  font-weight: 600;
 }
 
-.subtotal-cell {
-  white-space: nowrap;
-}
-
-.footer-row td {
+.assets-total-row td {
   background: var(--footer-assets-bg);
-  font-weight: 700;
-  white-space: nowrap;
-  font-size: 0.88rem;
 }
 
-.footer-row.liabilities-row td {
+.liabilities-total-row td {
   background: var(--footer-liabilities-bg);
 }
 
-.footer-row.networth-row td {
+.networth-row td {
   background: var(--footer-networth-bg);
   font-size: 0.94rem;
+  border-bottom: 3px double var(--text);
 }
 
 .overlay {
@@ -568,6 +580,39 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.row-symbol {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.row-actions-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.row-actions-button:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.row-actions-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.row-actions-button svg {
+  fill: currentColor;
 }
 
 .unpriced-badge {
@@ -658,11 +703,6 @@ body {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
-}
-
-.action-group {
-  display: inline-flex;
-  gap: 6px;
 }
 
 .mini-button {
@@ -987,10 +1027,6 @@ body {
   padding: 8px 10px;
 }
 
-.density-compact .table-toolbar {
-  padding: 5px 9px;
-}
-
 .density-compact .table-header {
   padding: 4px 8px;
 }
@@ -1000,12 +1036,17 @@ body {
   font-size: 0.82rem;
 }
 
-.density-compact .footer-row td {
+.density-compact .section-row td {
+  padding: 10px 8px 4px;
+}
+
+.density-compact .subtotal-row td,
+.density-compact .total-row td {
   padding: 4px 8px;
   font-size: 0.82rem;
 }
 
-.density-compact .footer-row.networth-row td {
+.density-compact .networth-row td {
   font-size: 0.88rem;
 }
 

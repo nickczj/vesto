@@ -98,7 +98,7 @@
             :checked="preferences.sections.cashSavings"
             @change="onSectionChange('cashSavings', $event)"
           >
-          <span>Cash / Savings</span>
+          <span>Cash and savings</span>
         </label>
         <label class="view-toggle">
           <input
@@ -110,6 +110,29 @@
         </label>
         <p class="view-hint muted">
           Investments always stay visible. Hidden sections are removed from the table; the KPIs and totals still cover the full portfolio.
+        </p>
+      </div>
+
+      <div class="view-group">
+        <span class="view-group-label">Columns</span>
+        <label class="view-toggle">
+          <input
+            type="checkbox"
+            :checked="preferences.showSource"
+            @change="onShowSourceChange"
+          >
+          <span>Source</span>
+        </label>
+        <label class="view-toggle">
+          <input
+            type="checkbox"
+            :checked="preferences.showNative"
+            @change="onShowNativeChange"
+          >
+          <span>Native value</span>
+        </label>
+        <p class="view-hint muted">
+          Source shows the provider and valuation state. Native shows each row's own currency.
         </p>
       </div>
 
@@ -153,6 +176,8 @@ const {
   setSectionVisible,
   setStickyHeader,
   setStickyNameColumn,
+  setShowSource,
+  setShowNative,
   resetPreferences,
 } = useViewPreferences()
 
@@ -182,6 +207,14 @@ function onStickyHeaderChange(event: Event) {
 
 function onStickyNameColumnChange(event: Event) {
   setStickyNameColumn(checked(event))
+}
+
+function onShowSourceChange(event: Event) {
+  setShowSource(checked(event))
+}
+
+function onShowNativeChange(event: Event) {
+  setShowNative(checked(event))
 }
 
 function onDocumentClick(event: MouseEvent) {

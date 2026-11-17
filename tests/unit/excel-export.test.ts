@@ -15,6 +15,7 @@ const sampleSheet: BalanceSheetResponse = {
       category: 'investment',
       nativeCurrency: 'USD',
       nativeAmount: 1200,
+      quantity: 10,
       boughtUnitPrice: 100,
       currentUnitPrice: 120,
       costBasisNative: 1000,
@@ -42,6 +43,7 @@ const sampleSheet: BalanceSheetResponse = {
       category: 'credit_card',
       nativeCurrency: 'SGD',
       nativeAmount: 300,
+      quantity: null,
       boughtUnitPrice: null,
       currentUnitPrice: null,
       costBasisNative: null,
@@ -98,12 +100,14 @@ describe('excel export helpers', () => {
 
     expect(rows).toHaveLength(3)
     expect(rows[0]).not.toHaveProperty('NativeCurrency')
+    expect(rows[0]?.Quantity).toBe(10)
     expect(rows[1]?.NativeAmount).toBe(-300)
     expect(rows[2]).toEqual({
       Section: 'Summary',
       Name: 'Net Worth',
       Category: '',
       Type: '',
+      Quantity: '',
       Source: '',
       AsOf: '2026-04-13T10:00:00.000Z',
       NativeAmount: '',
