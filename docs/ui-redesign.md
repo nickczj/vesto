@@ -20,7 +20,7 @@ Mockup (private canvas, sample figures only):
 | 3 | Ledger table (U1, U4, U5, U7) | `ui-redesign-foundations` | Committed |
 | 4 | Header and net-worth hero (U2, U3) | `ui-redesign-foundations` | Committed |
 | 5 | Palette, type scale, flatter surfaces | `ui-redesign-foundations` | Committed |
-| 6 | Add/edit dialog (U6) | — | Not started |
+| 6 | Add/edit dialog (U6) | `ui-redesign-foundations` | Committed |
 
 All slices are developed on `ui-redesign-foundations`, in this order, with at
 least one commit per slice. The PR is opened on request, not per slice. Slices
@@ -262,9 +262,31 @@ How each was done:
 
 ### Slice 6 — Add/edit dialog
 
-- [ ] Two-column form that fits a 768px-tall window.
-- [ ] Resolve the ticker before saving and say what it resolved to.
-- [ ] One clear primary button.
+- [x] Two-column form that fits a 768px-tall window.
+- [x] Resolve the ticker before saving and say what it resolved to.
+- [x] One clear primary button.
+
+How each was done:
+
+- **Layout.** The asset dialog has kind tabs (Investment, CPF, Cash, Other)
+  and a two-column grid with a three-column quantity/cost/currency row. The
+  liability dialog uses the same grid. The form fits a 1440×768 window and
+  stacks to one column under 720px; the dialog scrolls rather than overflowing.
+- **Resolution.** A new `GET /api/instruments/resolve?symbol=&market=` BFF
+  route calls vesto-go's existing `/v1/quotes/latest`; the browser still never
+  calls vesto-go. The dialog resolves on blur and on submit and shows the
+  resolved exchange, currency and last price. A definitive `not_found` blocks
+  a live-priced save and names the problem; a rate limit or an outage shows an
+  amber warning and still allows the save, because a provider problem must not
+  lose the entry. `manual_only` skips resolution entirely. A resolved market
+  fills the exchange field when it was left blank.
+- **Saving.** One ink primary button ("Add asset"/"Save changes", "Add
+  liability"/"Save changes") and a secondary Cancel. The button is disabled
+  while resolving or saving. A failed save keeps the dialog open and shows the
+  plain sentence inline instead of closing over a banner. Empty optional
+  numbers are sent as null, not as empty strings.
+- **No vesto-go change.** The existing single-quote endpoint returns the
+  resolved market, currency and price; no Go code was needed.
 
 ## Decisions
 
@@ -370,3 +392,18 @@ draw a chart; a fresh copy has none until the snapshot sidecar has run twice.
   390px in both themes, including the Add dialog, the View panel and the
   totals. `npm test` (105), `npm run typecheck` and `npm run build` pass. Not
   run: Playwright e2e.
+- **2026-11-17** — Slice 6 implemented and committed. The add/edit dialogs are
+  a two-column form with kind tabs (Investment, CPF, Cash, Other), a
+  quantity/cost/currency row, a price-source switch and one ink primary
+  button. A new `GET /api/instruments/resolve` BFF route resolves a ticker on
+  blur and on submit through vesto-go's existing single-quote endpoint and
+  says what it resolved to; a not-found blocks a live-priced save, while a
+  rate limit or outage warns and still allows it. `manual_only` skips the
+  lookup. Failed saves keep the dialog open with the sentence inline. Checked
+  at 1440×768 and 390px, including the CPF tab, the provider-down warning, a
+  liability save and a delete; the test rows were removed afterwards from the
+  `/tmp` copy. `npm test` (110, 5 new), `npm run typecheck` and
+  `npm run build` pass. Not run: Playwright e2e.
+- **2026-11-17** — All six slices committed on `ui-redesign-foundations`. The
+  branch is local only and no PR is open; the redesign is complete in code,
+  pending review.

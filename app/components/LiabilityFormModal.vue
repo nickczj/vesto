@@ -4,12 +4,12 @@
     :title="modalTitle"
     description="Enter the details of the liability, then save."
   >
-    <form class="form-grid" @submit.prevent="submitForm">
+    <form class="form-grid form-grid-two" @submit.prevent="submitForm">
       <label>
         <span>Type</span>
         <select v-model="form.type" class="bs-input">
           <option value="loan">Loan</option>
-          <option value="credit_card">Credit Card</option>
+          <option value="credit_card">Credit card</option>
           <option value="other">Other</option>
         </select>
       </label>
@@ -28,18 +28,26 @@
       </label>
 
       <label>
-        <span>Outstanding Amount</span>
+        <span>Outstanding amount</span>
         <input v-model.number="form.outstandingAmount" class="bs-input" type="number" step="0.01" min="0.01" required>
       </label>
 
-      <label>
+      <label class="form-span-2">
         <span>Notes</span>
-        <textarea v-model.trim="form.notes" class="bs-input" rows="3" />
+        <textarea v-model.trim="form.notes" class="bs-input" rows="2" maxlength="300" />
       </label>
 
-      <div class="form-actions">
-        <button type="button" class="mini-button" @click="isOpen = false">Cancel</button>
-        <button type="submit" class="mini-button">Save</button>
+      <p v-if="error" class="form-error form-span-2" role="alert">
+        {{ error }}
+      </p>
+
+      <div class="form-actions form-span-2">
+        <button type="button" class="mini-button" :disabled="submitting" @click="isOpen = false">
+          Cancel
+        </button>
+        <button type="submit" class="primary-button" :disabled="submitting">
+          {{ submitting ? 'Saving…' : primaryLabel }}
+        </button>
       </div>
     </form>
   </FormDialog>
@@ -59,6 +67,8 @@ interface LiabilityPayload {
 const props = defineProps<{
   open: boolean
   initial: LiabilityEntry | null
+  submitting: boolean
+  error: string | null
 }>()
 
 const emit = defineEmits<{
@@ -79,7 +89,8 @@ const form = reactive<LiabilityPayload>({
   notes: null,
 })
 
-const modalTitle = computed(() => (props.initial ? 'Edit Liability' : 'Add Liability'))
+const modalTitle = computed(() => (props.initial ? 'Edit liability' : 'Add liability'))
+const primaryLabel = computed(() => (props.initial ? 'Save changes' : 'Add liability'))
 
 function resetForm() {
   if (props.initial) {

@@ -50,6 +50,10 @@
 - `GET /api/sources?refresh=stale|always` — BFF proxy for vesto-go `/v1/sources`.
   It passes the markets the portfolio holds so out-of-scope providers report
   `not_applicable` rather than looking dead. The browser never calls vesto-go.
+- `GET /api/instruments/resolve?symbol=&market=` — BFF proxy for vesto-go
+  `/v1/quotes/latest`, used by the add/edit dialog to resolve a ticker before
+  saving. It returns a status and a plain sentence; a provider outage does not
+  block a save.
 - `GET /api/history?days=365` — daily valuation series plus read-time drawdown.
 - `POST /api/snapshots` — authenticated, idempotent capture for the current SGT
   date. `?force=always` overwrites a complete day; normal retries may only

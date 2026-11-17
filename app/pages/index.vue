@@ -96,12 +96,16 @@
     <AssetFormModal
       v-model:open="assetModalOpen"
       :initial="activeAsset"
+      :submitting="assetSubmitting"
+      :error="assetFormError"
       @submit="onSubmitAsset"
     />
 
     <LiabilityFormModal
       v-model:open="liabilityModalOpen"
       :initial="activeLiability"
+      :submitting="liabilitySubmitting"
+      :error="liabilityFormError"
       @submit="onSubmitLiability"
     />
   </main>
@@ -109,6 +113,7 @@
 
 <script setup lang="ts">
 import type { AssetEntry, BalanceSheetRow, LiabilityEntry } from '~~/shared/types/balance-sheet'
+import { toUserMessage } from '~/utils/errors'
 import { exportBalanceSheetToExcel } from '~/utils/excel-export'
 import { formatCurrency, formatShortDate } from '~/utils/formatters'
 import { peakHistoryPoint, sgtDateKey } from '~/utils/history-range'
@@ -255,6 +260,10 @@ const liabilityModalOpen = ref(false)
 const editingAssetId = ref<number | null>(null)
 const editingLiabilityId = ref<number | null>(null)
 const isExporting = ref(false)
+const assetSubmitting = ref(false)
+const liabilitySubmitting = ref(false)
+const assetFormError = ref<string | null>(null)
+const liabilityFormError = ref<string | null>(null)
 
 const activeAsset = computed<AssetEntry | null>(() => {
   if (!editingAssetId.value) return null
@@ -268,21 +277,29 @@ const activeLiability = computed<LiabilityEntry | null>(() => {
 
 function openCreateAsset() {
   editingAssetId.value = null
+  assetFormError.value = null
+  assetSubmitting.value = false
   assetModalOpen.value = true
 }
 
 function openEditAsset(id: number) {
   editingAssetId.value = id
+  assetFormError.value = null
+  assetSubmitting.value = false
   assetModalOpen.value = true
 }
 
 function openCreateLiability() {
   editingLiabilityId.value = null
+  liabilityFormError.value = null
+  liabilitySubmitting.value = false
   liabilityModalOpen.value = true
 }
 
 function openEditLiability(id: number) {
   editingLiabilityId.value = id
+  liabilityFormError.value = null
+  liabilitySubmitting.value = false
   liabilityModalOpen.value = true
 }
 
@@ -308,14 +325,25 @@ async function onSubmitAsset(payload: {
   valuationMode: AssetEntry['valuationMode']
   notes?: string | null
 }) {
-  if (editingAssetId.value) {
-    await updateAsset(editingAssetId.value, payload)
-  }
-  else {
-    await createAsset(payload)
-  }
+  assetSubmitting.value = true
+  assetFormError.value = null
 
-  assetModalOpen.value = false
+  try {
+    if (editingAssetId.value) {
+      await updateAsset(editingAssetId.value, payload)
+    }
+    else {
+      await createAsset(payload)
+    }
+
+    assetModalOpen.value = false
+  }
+  catch (error) {
+    assetFormError.value = toUserMessage(error)
+  }
+  finally {
+    assetSubmitting.value = false
+  }
 }
 
 async function onSubmitLiability(payload: {
@@ -325,14 +353,25 @@ async function onSubmitLiability(payload: {
   outstandingAmount: number
   notes?: string | null
 }) {
-  if (editingLiabilityId.value) {
-    await updateLiability(editingLiabilityId.value, payload)
-  }
-  else {
-    await createLiability(payload)
-  }
+  liabilitySubmitting.value = true
+  liabilityFormError.value = null
 
-  liabilityModalOpen.value = false
+  try {
+    if (editingLiabilityId.value) {
+      await updateLiability(editingLiabilityId.value, payload)
+    }
+    else {
+      await createLiability(payload)
+    }
+
+    liabilityModalOpen.value = false
+  }
+  catch (error) {
+    liabilityFormError.value = toUserMessage(error)
+  }
+  finally {
+    liabilitySubmitting.value = false
+  }
 }
 
 async function onDeleteAssetRow(row: BalanceSheetRow) {
