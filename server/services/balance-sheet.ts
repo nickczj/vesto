@@ -705,7 +705,11 @@ export async function buildBalanceSheet(refreshMode: RefreshMode): Promise<Balan
     requested,
     priced: sortedRows.filter(row => row.entityType === 'asset' && (row.source === 'live' || row.source === 'stale')).length,
     stale: sortedRows.filter(row => row.entityType === 'asset' && row.source === 'stale').length,
-    manualFallback: sortedRows.filter(
+    // Rows valued from a manual price rather than a market quote. That covers
+    // `manual_only` holdings as well as a `live_preferred` row that fell back,
+    // so the count is not a fallback count; `manual_only` rows are never quoted
+    // (D-038).
+    manualPriced: sortedRows.filter(
       row => row.entityType === 'asset' && row.section === 'investments' && row.source === 'manual',
     ).length,
     unpriced: sortedRows.filter(row => row.source === 'unpriced').length,

@@ -82,7 +82,7 @@ function sheet(overrides: Partial<BalanceSheetResponse> = {}): BalanceSheetRespo
       isStale: false,
     },
     marketData: { status: 'ok', quotesFetchedAt: null, checkedAt: null },
-    quoteSummary: { requested: 2, priced: 1, stale: 0, manualFallback: 1, unpriced: 0 },
+    quoteSummary: { requested: 2, priced: 1, stale: 0, manualPriced: 1, unpriced: 0 },
     warnings: [],
     ...overrides,
   }

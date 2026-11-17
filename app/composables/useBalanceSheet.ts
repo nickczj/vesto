@@ -52,7 +52,7 @@ const EMPTY_SHEET: BalanceSheetResponse = {
     requested: 0,
     priced: 0,
     stale: 0,
-    manualFallback: 0,
+    manualPriced: 0,
     unpriced: 0,
   },
   marketData: {

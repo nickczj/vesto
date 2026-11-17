@@ -150,7 +150,7 @@ export interface BalanceSheetResponse {
     requested: number
     priced: number
     stale: number
-    manualFallback: number
+    manualPriced: number
     unpriced: number
   }
   marketData: MarketDataState

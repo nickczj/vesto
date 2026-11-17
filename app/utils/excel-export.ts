@@ -120,7 +120,7 @@ export function toSummaryRows(sheet: BalanceSheetResponse): Array<Array<string |
     ['QuotesRequested', sheet.quoteSummary.requested],
     ['QuotesPriced', sheet.quoteSummary.priced],
     ['QuotesStale', sheet.quoteSummary.stale],
-    ['QuotesManualFallback', sheet.quoteSummary.manualFallback],
+    ['QuotesManualPriced', sheet.quoteSummary.manualPriced],
     ['QuotesUnpriced', sheet.quoteSummary.unpriced],
     ['FxAvailable', sheet.fx ? 1 : 0],
   ]
