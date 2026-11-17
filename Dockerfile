@@ -1,6 +1,13 @@
 FROM node:26-bookworm-slim AS deps
 WORKDIR /app
 
+# better-sqlite3 has no prebuilt binary for this Node ABI on linux/amd64, so its
+# install script falls through to node-gyp. The toolchain lives only in this
+# discarded stage.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
