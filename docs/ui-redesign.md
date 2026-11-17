@@ -19,7 +19,7 @@ Mockup (private canvas, sample figures only):
 | 2 | Keyboard, failure states, page basics (F5–F8) | `ui-redesign-foundations` | Committed; no PR yet |
 | 3 | Ledger table (U1, U4, U5, U7) | `ui-redesign-foundations` | Committed |
 | 4 | Header and net-worth hero (U2, U3) | `ui-redesign-foundations` | Committed |
-| 5 | Palette, type scale, flatter surfaces | — | Not started |
+| 5 | Palette, type scale, flatter surfaces | `ui-redesign-foundations` | Committed |
 | 6 | Add/edit dialog (U6) | — | Not started |
 
 All slices are developed on `ui-redesign-foundations`, in this order, with at
@@ -234,9 +234,31 @@ How each was done:
 
 ### Slice 5 — Palette, type scale, flatter surfaces
 
-- [ ] Replace the current variables with the tokens above in both themes.
-- [ ] Four type sizes; sentence-case labels.
-- [ ] Remove the corner gradients and the tinted total rows.
+- [x] Replace the current variables with the tokens above in both themes.
+- [x] Four type sizes; sentence-case labels.
+- [x] Remove the corner gradients and the tinted total rows.
+
+How each was done:
+
+- **Tokens.** `main.css` now defines only the nine ledger tokens and the few
+  values that do not derive from them (overlay, backdrop, shadow). Dark mode
+  overrides the tokens, not the rules. The old palette variables and the
+  role aliases are gone.
+- **Surfaces.** The page is flat paper: no radial gradients, no card around the
+  header or the history chart, no box around the table, and no tint on section,
+  liability, subtotal or total rows. Rules and the double rule under net worth
+  carry the structure.
+- **Type.** Four sizes: 12 for captions, column heads and metadata; 14 for the
+  table and body; 16 for the page title and net-worth row; 48 for the headline.
+  Labels and table headers are sentence case. The chart axis labels stay 11px
+  so the plot does not lose width.
+- **Colour.** Ink is the one action colour; the Add button and active segments
+  are solid ink. Gain, loss and amber are the only other colours. Buttons and
+  inputs use the control fill with an edge border; panels and dialogs sit on
+  the control surface.
+- **Currency.** `formatCurrency` now returns `S$` and `US$` explicitly, because
+  the `en-SG` locale renders the Singapore dollar as a bare `$`. Compact chart
+  labels therefore read `S$160K`.
 
 ### Slice 6 — Add/edit dialog
 
@@ -338,3 +360,13 @@ draw a chart; a fresh copy has none until the snapshot sidecar has run twice.
   `npm test` (104, 10 new), `npm run typecheck` and `npm run build` pass. Not
   run: Playwright e2e. vesto-go was not running, so the page used cached stale
   quotes, which is the expected fallback.
+- **2026-11-17** — Slice 5 implemented and committed. The page uses only the
+  ledger tokens in both themes: flat paper, no gradients, no card around the
+  header or the chart, no box around the table and no tinted section or total
+  rows. The type scale is 12/14/16/48 with sentence-case labels; the chart
+  axis labels stay 11px. Ink is the only action colour, and active segments are
+  solid ink. `formatCurrency` returns `S$` and `US$` explicitly because the
+  `en-SG` locale renders SGD as a bare `$`. Checked at 1440, 1024, 900 and
+  390px in both themes, including the Add dialog, the View panel and the
+  totals. `npm test` (105), `npm run typecheck` and `npm run build` pass. Not
+  run: Playwright e2e.

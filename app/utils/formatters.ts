@@ -1,13 +1,19 @@
 import type { CurrencyCode } from '~~/shared/types/balance-sheet'
 
+const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
+  SGD: 'S$',
+  USD: 'US$',
+}
+
 export function formatCurrency(value: number, currency: CurrencyCode, compact = false): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
+  const amount = Number.isFinite(value) ? value : 0
+  const body = new Intl.NumberFormat('en-SG', {
     notation: compact ? 'compact' : 'standard',
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-  }).format(Number.isFinite(value) ? value : 0)
+    minimumFractionDigits: compact ? 0 : 2,
+    maximumFractionDigits: compact ? 1 : 2,
+  }).format(Math.abs(amount))
+
+  return `${amount < 0 ? '-' : ''}${CURRENCY_SYMBOLS[currency]}${body}`
 }
 
 export function formatSignedCurrency(value: number, currency: CurrencyCode): string {

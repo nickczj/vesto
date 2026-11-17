@@ -12,14 +12,14 @@
           :has-loaded="hasLoaded"
           :requested="sheet.quoteSummary.requested"
         />
-        <UButton size="xs" color="neutral" variant="soft" :loading="isLoading" @click="onRefresh">
+        <UButton size="xs" color="neutral" variant="ghost" class="header-control" :loading="isLoading" @click="onRefresh">
           Refresh
         </UButton>
         <ViewSettingsPopover />
-        <UButton size="xs" color="neutral" variant="soft" :loading="isExporting" title="Export to Excel" @click="onExportExcel">
+        <UButton size="xs" color="neutral" variant="ghost" class="header-control" :loading="isExporting" title="Export to Excel" @click="onExportExcel">
           Export
         </UButton>
-        <UButton size="xs" color="neutral" variant="soft" @click="onToggleTheme">
+        <UButton size="xs" color="neutral" variant="ghost" class="header-control" @click="onToggleTheme">
           Theme
         </UButton>
         <UDropdownMenu :items="addItems" :content="{ align: 'end' }">

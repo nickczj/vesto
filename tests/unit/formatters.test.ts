@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatClock, formatHistoryDate, formatRecentTimestamp, formatShortDate, formatTimestamp } from '~/utils/formatters'
+import { formatClock, formatCurrency, formatHistoryDate, formatRecentTimestamp, formatShortDate, formatTimestamp } from '~/utils/formatters'
 
 describe('formatRecentTimestamp', () => {
   // Built from local-time parts so the test does not depend on the machine's zone.
@@ -21,6 +21,13 @@ describe('formatRecentTimestamp', () => {
   it('says N/A for a missing or unreadable value', () => {
     expect(formatRecentTimestamp(null, now)).toBe('N/A')
     expect(formatRecentTimestamp('not a date', now)).toBe('N/A')
+  })
+})
+
+describe('currency formatting', () => {
+  it('uses the Singapore symbols', () => {
+    expect(formatCurrency(1234.5, 'SGD')).toBe('S$1,234.50')
+    expect(formatCurrency(1234.5, 'USD')).toBe('US$1,234.50')
   })
 })
 

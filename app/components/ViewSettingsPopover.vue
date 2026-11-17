@@ -3,7 +3,8 @@
     <UButton
       size="xs"
       color="neutral"
-      variant="soft"
+      variant="ghost"
+      class="header-control"
       :aria-expanded="isOpen"
       aria-haspopup="true"
       @click="toggle"
