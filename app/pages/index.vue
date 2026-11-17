@@ -7,7 +7,7 @@
         <p class="header-meta muted">
           <span>Auto-refresh runs every 45 seconds while the tab is visible.</span>
           <span aria-hidden="true">•</span>
-          <span>Last snapshot: {{ formatTimestamp(sheet.generatedAt) }}</span>
+          <span :class="{ warning: marketUnreachable }">{{ pricesLabel }}</span>
           <template v-if="sheet.quoteSummary.unpriced > 0">
             <span aria-hidden="true">•</span>
             <span class="warning">{{ sheet.quoteSummary.unpriced }} unpriced</span>
@@ -16,7 +16,7 @@
       </div>
 
       <div class="header-actions">
-        <SourceStatusChip />
+        <SourceStatusChip :market-status="sheet.marketData.status" />
         <UButton size="xs" color="neutral" variant="soft" @click="onToggleTheme">Toggle Theme</UButton>
         <ViewSettingsPopover />
         <UButton size="xs" color="neutral" variant="soft" :loading="isExporting" @click="onExportExcel">Export Excel</UButton>
@@ -95,11 +95,12 @@
 <script setup lang="ts">
 import type { AssetEntry, LiabilityEntry } from '~~/shared/types/balance-sheet'
 import { exportBalanceSheetToExcel } from '~/utils/excel-export'
-import { formatCurrency, formatTimestamp } from '~/utils/formatters'
+import { formatCurrency, formatRecentTimestamp } from '~/utils/formatters'
 
 const {
   sheet,
   rows: allRows,
+  hasLoaded,
   assets,
   liabilities,
   isLoading,
@@ -126,6 +127,27 @@ const {
 const { toggleTheme } = useThemeMode()
 
 const tableRows = computed(() => allRows.value.filter(row => visibleSections.value.includes(row.section)))
+
+const marketUnreachable = computed(() => sheet.value.marketData.status === 'unreachable')
+
+// The time prices were last fetched, not the time of the last attempt: a
+// failed refresh must not make old prices look current.
+const pricesLabel = computed(() => {
+  if (!hasLoaded.value) return 'Loading prices…'
+
+  const fetchedAt = sheet.value.marketData.quotesFetchedAt
+  if (marketUnreachable.value) {
+    // The status chip beside this says the service is unreachable; this says
+    // how old the prices on the page therefore are.
+    return fetchedAt
+      ? `Prices last fetched: ${formatRecentTimestamp(fetchedAt)}`
+      : 'No prices fetched yet'
+  }
+
+  if (fetchedAt) return `Prices fetched: ${formatRecentTimestamp(fetchedAt)}`
+  if (sheet.value.quoteSummary.requested === 0) return 'No holdings use live prices'
+  return 'Prices not fetched yet'
+})
 
 interface KpiCardView {
   label: string

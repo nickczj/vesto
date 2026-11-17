@@ -3,7 +3,7 @@
     <button
       type="button"
       class="source-chip"
-      :class="`state-${overall}`"
+      :class="`state-${chipState}`"
       :aria-expanded="isOpen"
       aria-haspopup="true"
       @click="toggle"
@@ -28,8 +28,8 @@
       <p v-if="errorMessage" class="source-panel-note warning">
         {{ errorMessage }}
       </p>
-      <p v-else-if="snapshot?.isStale" class="source-panel-note warning">
-        vesto-go is unreachable. Showing the last successful read.
+      <p v-else-if="isUnreachable" class="source-panel-note warning">
+        The market-data service is not responding. This is the last successful read; prices on the page are the last ones fetched.
       </p>
 
       <ul v-if="snapshot && snapshot.sources.length > 0" class="source-list">
@@ -61,9 +61,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { MarketDataStatus } from '~~/shared/types/balance-sheet'
 import type { OverallSourceState, SourceHealth, SourceState } from '~~/shared/types/source-health'
 import { formatTimestamp } from '~/utils/formatters'
+
+const props = defineProps<{
+  /** How the balance sheet's own last call to the market-data service went. */
+  marketStatus?: MarketDataStatus
+}>()
 
 const { snapshot, overall, isLoading, errorMessage, load } = useSourceHealth()
 
@@ -81,11 +87,26 @@ const overallLabels: Record<OverallSourceState, string> = {
   unavailable: 'Source status unavailable',
 }
 
+// "One provider is flaky" and "nothing is answering" are different problems.
+// Provider health is read at most every few minutes, so the balance sheet's own
+// last call is the faster signal that the service has gone away.
+const isUnreachable = computed(() => props.marketStatus === 'unreachable' || snapshot.value?.isStale === true)
+
+const chipState = computed(() => (isUnreachable.value ? 'unreachable' : overall.value))
+
 const overallLabel = computed(() => {
+  if (isUnreachable.value) return 'Market data unreachable'
   // Before the first read completes (SSR and hydration), say "checking"
   // rather than claiming the status is unavailable.
   if (snapshot.value === null && errorMessage.value === null) return 'Checking providers'
   return overallLabels[overall.value]
+})
+
+// Re-read provider health when the service goes away or comes back, rather
+// than leaving the last answer on screen until the next scheduled read.
+watch(() => props.marketStatus, (next, previous) => {
+  if (next === previous) return
+  if (next === 'unreachable' || previous === 'unreachable') void load({ force: true })
 })
 
 const stateLabels: Record<SourceState, string> = {

@@ -5,10 +5,17 @@ import {
   type BalanceSheetRow,
   type CurrencyCode,
   type FxSnapshot,
+  type MarketDataState,
+  type MarketDataStatus,
   type QuoteSnapshot,
   type RefreshMode,
   LIVE_REFRESH_INTERVAL_MS,
 } from '~~/shared/types/balance-sheet'
+import {
+  classifyRequestFailure,
+  describeRequestFailure,
+  isUnreachable,
+} from '~~/shared/utils/request-failure'
 import { listAssets, listLiabilities, updateAssetMarket } from '~~/server/services/repository'
 import {
   loadCachedFx,
@@ -42,8 +49,20 @@ type FxCacheEntry = {
   cachedAt: number
 }
 
+const MARKET_DATA_SERVICE = 'the market-data service'
+
+/** The outcome of one attempt to reach vesto-go. */
+type UpstreamOutcome = {
+  result: 'ok' | 'partial' | 'failed' | 'unreachable'
+  at: number
+}
+
 const quoteCache = new Map<string, QuoteCacheEntry>()
 let fxCache: FxCacheEntry | null = null
+// Remembered across requests: a `never` or cache-hit response makes no attempt
+// of its own, and must still say that the last one found nobody home.
+let lastQuoteOutcome: UpstreamOutcome | null = null
+let lastFxOutcome: UpstreamOutcome | null = null
 let inflightFxSnapshot: Promise<FxSnapshot> | null = null
 const inflightQuoteFetches = new Map<string, Promise<QuoteBatchFetchResult>>()
 
@@ -65,6 +84,8 @@ function sectionForAsset(kind: AssetEntry['kind']): BalanceSection {
 export function restoreSnapshotCache(): void {
   quoteCache.clear()
   fxCache = null
+  lastQuoteOutcome = null
+  lastFxOutcome = null
 
   for (const record of loadCachedQuotes()) {
     quoteCache.set(record.key, {
@@ -225,6 +246,7 @@ async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): 
         }
         fxCache = entry
         persistFxCache(entry, now)
+        lastFxOutcome = { result: 'ok', at: now }
 
         return normalized
       })().finally(() => {
@@ -235,17 +257,20 @@ async function resolveFxSnapshot(refreshMode: RefreshMode, warnings: string[]): 
     return await inflightFxSnapshot
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const failure = classifyRequestFailure(error)
+    const reason = describeRequestFailure(failure, MARKET_DATA_SERVICE)
+    lastFxOutcome = { result: isUnreachable(failure) ? 'unreachable' : 'failed', at: now }
+    logUpstreamFailure('FX fetch', error)
 
     if (fxCache) {
-      warnings.push(`FX fetch failed (${message}); using the last-known USD/SGD rate.`)
+      warnings.push(`Exchange rate not refreshed: ${reason}. Using the last known USD/SGD rate.`)
       return {
         ...fxCache.snapshot,
         isStale: true,
       }
     }
 
-    warnings.push(`FX fetch failed (${message}); USD/SGD totals are unavailable.`)
+    warnings.push(`Exchange rate unavailable: ${reason}. USD/SGD totals are hidden.`)
     return null
   }
 }
@@ -257,6 +282,8 @@ async function resolveQuoteSnapshots(
 ): Promise<{
   byKey: Map<string, QuoteSnapshot>
   requested: number
+  /** Newest time a quote for this portfolio arrived; null when none has. */
+  fetchedAt: number | null
 }> {
   const lookupItems: QuoteLookupItem[] = []
   const uniqueKeys = new Set<string>()
@@ -308,6 +335,7 @@ async function resolveQuoteSnapshots(
     return {
       byKey,
       requested: lookupItems.length,
+      fetchedAt: newestQuoteFetch(lookupItems),
     }
   }
 
@@ -332,8 +360,10 @@ async function resolveQuoteSnapshots(
     }
 
     if (fetched.errors.length > 0) {
-      warnings.push(`Quote batch had partial failures: ${fetched.errors.join('; ')}`)
+      warnings.push(`Some prices were not refreshed: ${fetched.errors.join('; ')}`)
     }
+
+    lastQuoteOutcome = { result: fetched.errors.length > 0 ? 'partial' : 'ok', at: now }
 
     // Anything we asked for but did not get back is still showing the previous
     // snapshot. It must not keep the "live" label it earned on an earlier fetch.
@@ -345,8 +375,13 @@ async function resolveQuoteSnapshots(
     }
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    warnings.push(`Quote batch fetch failed (${message}); using cached/manual fallbacks.`)
+    const failure = classifyRequestFailure(error)
+    const reason = describeRequestFailure(failure, MARKET_DATA_SERVICE)
+    lastQuoteOutcome = { result: isUnreachable(failure) ? 'unreachable' : 'failed', at: now }
+    logUpstreamFailure('Quote batch fetch', error)
+    warnings.push(
+      `Prices not refreshed: ${reason}. Showing the last fetched prices; holdings without one fall back to their manual price.`,
+    )
 
     for (const item of fetchItems) {
       markQuoteSnapshotStale(buildQuoteCacheKey(item.symbol, item.market), byKey)
@@ -359,6 +394,52 @@ async function resolveQuoteSnapshots(
   return {
     byKey,
     requested: lookupItems.length,
+    fetchedAt: newestQuoteFetch(lookupItems),
+  }
+}
+
+/**
+ * The cache only records a time when a quote actually arrives, so the newest
+ * `cachedAt` is the last time prices were fetched. A failed refresh leaves it
+ * where it was.
+ */
+function newestQuoteFetch(items: QuoteLookupItem[]): number | null {
+  let newest: number | null = null
+
+  for (const item of items) {
+    const cachedAt = quoteCache.get(buildQuoteCacheKey(item.symbol, item.market))?.cachedAt
+    if (typeof cachedAt === 'number' && (newest === null || cachedAt > newest)) {
+      newest = cachedAt
+    }
+  }
+
+  return newest
+}
+
+// The page gets a plain sentence; the detail a developer needs stays in the log.
+function logUpstreamFailure(what: string, error: unknown): void {
+  console.warn(`[vesto] ${what} failed:`, error instanceof Error ? error.message : String(error))
+}
+
+function marketDataStatus(): MarketDataStatus {
+  const results = [lastQuoteOutcome, lastFxOutcome]
+    .filter((outcome): outcome is UpstreamOutcome => outcome !== null)
+    .map(outcome => outcome.result)
+
+  if (results.length === 0) return 'unknown'
+  if (results.includes('unreachable')) return 'unreachable'
+  if (results.includes('failed') || results.includes('partial')) return 'degraded'
+  return 'ok'
+}
+
+function marketDataState(quotesFetchedAt: number | null): MarketDataState {
+  const attempts = [lastQuoteOutcome?.at, lastFxOutcome?.at]
+    .filter((at): at is number => typeof at === 'number')
+
+  return {
+    status: marketDataStatus(),
+    quotesFetchedAt: quotesFetchedAt === null ? null : new Date(quotesFetchedAt).toISOString(),
+    checkedAt: attempts.length === 0 ? null : new Date(Math.max(...attempts)).toISOString(),
   }
 }
 
@@ -599,7 +680,7 @@ export async function buildBalanceSheet(refreshMode: RefreshMode): Promise<Balan
   const assets = listAssets()
   const liabilities = listLiabilities()
 
-  const [{ byKey: quoteByKey, requested }, fx] = await Promise.all([
+  const [{ byKey: quoteByKey, requested, fetchedAt: quotesFetchedAt }, fx] = await Promise.all([
     resolveQuoteSnapshots(assets, refreshMode, warnings),
     resolveFxSnapshot(refreshMode, warnings),
   ])
@@ -634,6 +715,7 @@ export async function buildBalanceSheet(refreshMode: RefreshMode): Promise<Balan
     totals,
     fx,
     quoteSummary,
+    marketData: marketDataState(quotesFetchedAt),
     warnings,
   }
 }

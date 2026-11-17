@@ -80,6 +80,7 @@ function sheet(overrides: Partial<BalanceSheetResponse> = {}): BalanceSheetRespo
       source: 'frankfurter',
       isStale: false,
     },
+    marketData: { status: 'ok', quotesFetchedAt: null, checkedAt: null },
     quoteSummary: { requested: 2, priced: 1, stale: 0, manualFallback: 1, unpriced: 0 },
     warnings: [],
     ...overrides,

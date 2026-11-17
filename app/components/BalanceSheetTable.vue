@@ -96,6 +96,11 @@
       </tfoot>
     </table>
 
+    <p v-if="hasStalePrices" class="table-legend muted">
+      <span class="stale-dot" aria-hidden="true" />
+      Not a live price: the most recent one fetched.
+    </p>
+
     <div v-if="showBlockingOverlay" class="overlay">Refreshing...</div>
   </div>
 </template>
@@ -114,7 +119,7 @@ import {
 import { computed, h, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { BalanceSection, BalanceSheetRow, BalanceSheetTotals } from '~~/shared/types/balance-sheet'
 import { useViewPreferences } from '~/composables/useViewPreferences'
-import { formatCurrency, formatSignedCurrency } from '~/utils/formatters'
+import { formatCurrency, formatSignedCurrency, formatTimestamp } from '~/utils/formatters'
 import { compareWithinSection } from '~/utils/section-sort'
 
 const props = defineProps<{
@@ -290,7 +295,21 @@ const columns = [
   columnHelper.display({
     id: 'current',
     header: 'Current',
-    cell: ({ row }) => formatCurrentPrice(row.original),
+    // A stale price is marked on the price itself, so it shows whether or not
+    // the Source column is on.
+    cell: ({ row }) => {
+      const price = formatCurrentPrice(row.original)
+      if (row.original.source !== 'stale') return price
+
+      const label = row.original.asOf
+        ? `Not a live price. Last fetched price, as of ${formatTimestamp(row.original.asOf)}.`
+        : 'Not a live price. Last fetched price.'
+
+      return h('span', { class: 'price-cell' }, [
+        price,
+        h('span', { class: 'stale-dot', role: 'img', 'aria-label': label, title: label }),
+      ])
+    },
     sortingFn: sortWithinSection(row => row.currentUnitPrice),
   }),
   columnHelper.accessor(row => signedAmount(row, row.usdAmount), {
@@ -379,6 +398,7 @@ const table = useVueTable({
 const renderedRows = computed(() => table.getRowModel().rows)
 const visibleColumnCount = computed(() => table.getVisibleLeafColumns().length)
 const showBlockingOverlay = computed(() => props.loading && props.rows.length === 0)
+const hasStalePrices = computed(() => props.rows.some(row => row.source === 'stale'))
 
 function isSectionStart(index: number): boolean {
   if (index === 0) return true

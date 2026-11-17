@@ -82,6 +82,7 @@ const sampleSheet: BalanceSheetResponse = {
     source: 'vesto-go',
     isStale: false,
   },
+  marketData: { status: 'ok', quotesFetchedAt: null, checkedAt: null },
   quoteSummary: {
     requested: 1,
     priced: 1,

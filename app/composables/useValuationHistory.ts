@@ -1,4 +1,5 @@
 import type { ValuationHistoryResponse } from '~~/shared/types/history'
+import { toUserMessage } from '~/utils/errors'
 
 export function useValuationHistory() {
   const history = useState<ValuationHistoryResponse | null>('valuation-history:snapshot', () => null)
@@ -14,7 +15,7 @@ export function useValuationHistory() {
       history.value = await $fetch<ValuationHistoryResponse>('/api/history')
     }
     catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : String(error)
+      errorMessage.value = toUserMessage(error)
     }
     finally {
       isLoading.value = false

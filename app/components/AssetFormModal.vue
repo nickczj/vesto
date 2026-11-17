@@ -1,107 +1,97 @@
 <template>
-  <Teleport to="body">
-    <div
-      v-if="isOpen"
-      class="simple-modal-backdrop"
-      @click.self="isOpen = false"
-      @keydown.esc="isOpen = false"
-    >
-      <section class="simple-modal" role="dialog" aria-modal="true" :aria-label="modalTitle">
-        <header class="simple-modal-header">
-          <h3>{{ modalTitle }}</h3>
-          <button type="button" class="mini-button" @click="isOpen = false">Close</button>
-        </header>
+  <FormDialog
+    v-model:open="isOpen"
+    :title="modalTitle"
+    description="Enter the details of the asset, then save."
+  >
+    <form class="form-grid" @submit.prevent="submitForm">
+      <label>
+        <span>Kind</span>
+        <select v-model="form.kind" class="bs-input">
+          <option value="investment">Investment</option>
+          <option value="cpf">CPF</option>
+          <option value="cash_savings">Cash/Savings</option>
+          <option value="manual">Manual</option>
+        </select>
+      </label>
 
-        <form class="form-grid" @submit.prevent="submitForm">
-          <label>
-            <span>Kind</span>
-            <select v-model="form.kind" class="bs-input">
-              <option value="investment">Investment</option>
-              <option value="cpf">CPF</option>
-              <option value="cash_savings">Cash/Savings</option>
-              <option value="manual">Manual</option>
-            </select>
-          </label>
+      <label>
+        <span>Name</span>
+        <input v-model.trim="form.name" class="bs-input" required>
+      </label>
 
-          <label>
-            <span>Name</span>
-            <input v-model.trim="form.name" class="bs-input" required>
-          </label>
+      <label>
+        <span>Currency</span>
+        <select v-model="form.currency" class="bs-input">
+          <option value="USD">USD</option>
+          <option value="SGD">SGD</option>
+        </select>
+      </label>
 
-          <label>
-            <span>Currency</span>
-            <select v-model="form.currency" class="bs-input">
-              <option value="USD">USD</option>
-              <option value="SGD">SGD</option>
-            </select>
-          </label>
+      <template v-if="form.kind === 'investment'">
+        <label>
+          <span>Symbol</span>
+          <input v-model.trim="form.symbol" class="bs-input" placeholder="AAPL or VWRA.L" required>
+        </label>
 
-          <template v-if="form.kind === 'investment'">
-            <label>
-              <span>Symbol</span>
-              <input v-model.trim="form.symbol" class="bs-input" placeholder="AAPL or VWRA.L" required>
-            </label>
+        <label>
+          <span>Market</span>
+          <input v-model.trim="form.market" class="bs-input" placeholder="NMS, LSE, SES">
+        </label>
 
-            <label>
-              <span>Market</span>
-              <input v-model.trim="form.market" class="bs-input" placeholder="NMS, LSE, SES">
-            </label>
+        <label>
+          <span>Quantity</span>
+          <input v-model.number="form.quantity" class="bs-input" type="number" step="0.0001" min="0.0001" required>
+        </label>
 
-            <label>
-              <span>Quantity</span>
-              <input v-model.number="form.quantity" class="bs-input" type="number" step="0.0001" min="0.0001" required>
-            </label>
+        <label>
+          <span>Valuation Mode</span>
+          <select v-model="form.valuationMode" class="bs-input">
+            <option value="live_preferred">Live Preferred</option>
+            <option value="manual_only">Manual Only</option>
+          </select>
+        </label>
 
-            <label>
-              <span>Valuation Mode</span>
-              <select v-model="form.valuationMode" class="bs-input">
-                <option value="live_preferred">Live Preferred</option>
-                <option value="manual_only">Manual Only</option>
-              </select>
-            </label>
+        <label>
+          <span>Cost Basis / Unit</span>
+          <input v-model.number="form.costBasisUnitPrice" class="bs-input" type="number" step="0.0001" min="0">
+        </label>
 
-            <label>
-              <span>Cost Basis / Unit</span>
-              <input v-model.number="form.costBasisUnitPrice" class="bs-input" type="number" step="0.0001" min="0">
-            </label>
+        <label>
+          <span>Manual Price / Unit</span>
+          <input v-model.number="form.manualPrice" class="bs-input" type="number" step="0.0001" min="0">
+          <small class="muted">Fallback when no live quote is available.</small>
+        </label>
+      </template>
 
-            <label>
-              <span>Manual Price / Unit</span>
-              <input v-model.number="form.manualPrice" class="bs-input" type="number" step="0.0001" min="0">
-              <small class="muted">Fallback when no live quote is available.</small>
-            </label>
-          </template>
+      <template v-else>
+        <label v-if="form.kind === 'cpf'">
+          <span>CPF Bucket</span>
+          <select v-model="form.cpfBucket" class="bs-input">
+            <option value="OA">OA</option>
+            <option value="SA">SA</option>
+            <option value="MA">MA</option>
+            <option value="RA">RA</option>
+          </select>
+        </label>
 
-          <template v-else>
-            <label v-if="form.kind === 'cpf'">
-              <span>CPF Bucket</span>
-              <select v-model="form.cpfBucket" class="bs-input">
-                <option value="OA">OA</option>
-                <option value="SA">SA</option>
-                <option value="MA">MA</option>
-                <option value="RA">RA</option>
-              </select>
-            </label>
+        <label>
+          <span>Amount</span>
+          <input v-model.number="form.amount" class="bs-input" type="number" step="0.01" min="0" required>
+        </label>
+      </template>
 
-            <label>
-              <span>Amount</span>
-              <input v-model.number="form.amount" class="bs-input" type="number" step="0.01" min="0" required>
-            </label>
-          </template>
+      <label>
+        <span>Notes</span>
+        <textarea v-model.trim="form.notes" class="bs-input" rows="3" />
+      </label>
 
-          <label>
-            <span>Notes</span>
-            <textarea v-model.trim="form.notes" class="bs-input" rows="3" />
-          </label>
-
-          <div class="form-actions">
-            <button type="button" class="mini-button" @click="isOpen = false">Cancel</button>
-            <button type="submit" class="mini-button">Save</button>
-          </div>
-        </form>
-      </section>
-    </div>
-  </Teleport>
+      <div class="form-actions">
+        <button type="button" class="mini-button" @click="isOpen = false">Cancel</button>
+        <button type="submit" class="mini-button">Save</button>
+      </div>
+    </form>
+  </FormDialog>
 </template>
 
 <script setup lang="ts">

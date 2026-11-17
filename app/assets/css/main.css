@@ -44,9 +44,13 @@
   /* Nuxt UI components take their semantic colours from the page palette. */
   --ui-primary: var(--primary);
   --ui-warning: var(--warning);
+  /* Tells the browser which theme its own parts (scrollbars, form controls,
+     the canvas behind the page) should use. */
+  color-scheme: light;
 }
 
 :root[data-theme='dark'] {
+  color-scheme: dark;
   --bg: #0a1321;
   --bg-accent-1: #153227;
   --bg-accent-2: #1c2f46;
@@ -451,6 +455,33 @@ body {
   font-size: 0.88rem;
 }
 
+.price-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Marks a price that is not live. Amber, never colour alone: it carries a
+   label for assistive technology and a legend under the table. */
+.stale-dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+.table-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 9px;
+  border-top: 1px solid var(--border);
+  font-size: 0.76rem;
+}
+
 .section-row td {
   background: var(--section-bg);
   border-top: 1px solid var(--border);
@@ -575,7 +606,12 @@ body {
   background: var(--modal-backdrop);
 }
 
+/* The dialog is a Nuxt UI modal (focus trap, Esc, focus return) wearing these
+   classes. Its own utility classes sit in a lower cascade layer, so every
+   property set here wins. */
 .simple-modal {
+  display: block;
+  max-width: none;
   width: min(720px, 100%);
   max-height: calc(100vh - 32px);
   overflow: auto;
@@ -682,7 +718,8 @@ body {
   background: var(--warning);
 }
 
-.source-chip.state-failing .source-dot {
+.source-chip.state-failing .source-dot,
+.source-chip.state-unreachable .source-dot {
   background: var(--danger);
 }
 
@@ -694,7 +731,8 @@ body {
   border-color: var(--warning);
 }
 
-.source-chip.state-failing {
+.source-chip.state-failing,
+.source-chip.state-unreachable {
   border-color: var(--danger);
 }
 

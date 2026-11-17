@@ -25,3 +25,21 @@ export function formatTimestamp(value: string | null | undefined): string {
     timeStyle: 'short',
   }).format(parsed)
 }
+
+/**
+ * A timestamp for "when did this last happen": the time alone when it was
+ * today, the date and time otherwise. Keeps the common case short.
+ */
+export function formatRecentTimestamp(value: string | null | undefined, now: Date = new Date()): string {
+  if (!value) return 'N/A'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'N/A'
+
+  const sameDay = parsed.getFullYear() === now.getFullYear()
+    && parsed.getMonth() === now.getMonth()
+    && parsed.getDate() === now.getDate()
+
+  if (!sameDay) return formatTimestamp(value)
+
+  return new Intl.DateTimeFormat('en-SG', { timeStyle: 'short' }).format(parsed)
+}

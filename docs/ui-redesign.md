@@ -16,7 +16,7 @@ Mockup (private canvas, sample figures only):
 | Slice | Scope | Branch | Status |
 | --- | --- | --- | --- |
 | 1 | Foundations: fix what is broken (F1–F4) | `ui-redesign-foundations` | Committed; no PR yet |
-| 2 | Keyboard, failure states, page basics (F5–F8) | — | Not started |
+| 2 | Keyboard, failure states, page basics (F5–F8) | `ui-redesign-foundations` | Committed; no PR yet |
 | 3 | Ledger table (U1, U4, U5, U7) | — | Not started |
 | 4 | Header and net-worth hero (U2, U3) | — | Not started |
 | 5 | Palette, type scale, flatter surfaces | — | Not started |
@@ -137,14 +137,33 @@ How each was done, and what is left open:
 
 ### Slice 2 — Keyboard, failure states, page basics
 
-- [ ] F5: focus moves into the dialog, is trapped there, and returns to the
+- [x] F5: focus moves into the dialog, is trapped there, and returns to the
       trigger; Esc always closes.
-- [ ] F6: show the time prices were last fetched, not the time of the last
+- [x] F6: show the time prices were last fetched, not the time of the last
       attempt; distinguish "backend unreachable" from "one provider degraded";
       plain-language warnings without internal URLs.
-- [ ] F7: mark a stale price on the price itself.
-- [ ] F8: `<title>`, `lang`, `color-scheme`, and a theme that is right on first
+- [x] F7: mark a stale price on the price itself.
+- [x] F8: `<title>`, `lang`, `color-scheme`, and a theme that is right on first
       paint.
+
+How each was done:
+
+- **F5** `FormDialog.vue` wraps Nuxt UI's `UModal` around the existing form
+  markup and `simple-modal` classes, so the look is unchanged. Focus starts on
+  the first field, not the Close button.
+- **F6** `BalanceSheetResponse.marketData` reports how the last call to
+  vesto-go went (`ok`, `degraded`, `unreachable`, `unknown`) and when quotes
+  last arrived. The header shows that time instead of `generatedAt`. The
+  status chip reads "Market data unreachable" from the sheet's own last call,
+  which is faster than the five-minute provider-health read.
+  `shared/utils/request-failure.ts` turns a fetch error into a plain sentence;
+  the raw error goes to the server log.
+- **F7** A stale price carries an amber dot with a text label, and the table
+  gets a one-line legend whenever any row has one.
+- **F8** The colour-mode module owns the theme again (`storageKey:
+  'vesto:theme-mode'`, `dataValue: 'theme'`), so its inline head script sets
+  `dark` and `data-theme` before first paint. `app/plugins/theme.client.ts` is
+  gone. This replaces the `ui.colorMode: false` stopgap from slice 1.
 
 ### Slice 3 — Ledger table
 
@@ -228,3 +247,11 @@ draw a chart; a fresh copy has none until the snapshot sidecar has run twice.
   `npm run typecheck` and `npm run build` pass. `npm run test:e2e` was not
   run: Playwright's browsers are not installed on this machine. Committed on
   the branch; later slices continue on the same branch and no PR is open yet.
+- **2026-11-17** — Slice 2 implemented and committed. Checked in the browser:
+  dialogs by keyboard alone (open, Tab stays inside, Esc and outside-click
+  close, focus returns to the trigger), the theme toggle and stored choice,
+  stale-price dots, and the backend-down state by stopping vesto-go (chip,
+  header time and warnings all correct, and all recover when it returns).
+  `npm test` (84), `npm run typecheck` and `npm run build` pass. Not run:
+  Playwright e2e. Not checked: the first paint on a cold load in light mode on
+  a dark OS, only that the inline script is in the served `<head>`.

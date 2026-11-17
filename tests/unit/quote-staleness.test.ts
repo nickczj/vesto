@@ -46,6 +46,13 @@ function quoteSnapshot(): QuoteSnapshot {
   }
 }
 
+/** What `ofetch` throws when vesto-go does not answer. */
+function noResponse(): Error {
+  const error = new Error('[POST] "http://127.0.0.1:8080/v1/quotes/latest/batch": <no response> fetch failed')
+  error.name = 'FetchError'
+  return error
+}
+
 function createInvestment() {
   createAsset({
     kind: 'investment',
@@ -76,6 +83,8 @@ describe('quote staleness', () => {
     fetchQuoteBatch.mockReset()
     fetchUsdToSgdFx.mockReset()
     fetchUsdToSgdFx.mockResolvedValue(fxSnapshot())
+    // The service logs the raw upstream error; keep the test output quiet.
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
   it('downgrades a cached live quote when the next refresh fails', async () => {
@@ -97,7 +106,93 @@ describe('quote staleness', () => {
     expect(second.rows[0].source).toBe('stale')
     expect(second.rows[0].usdAmount).toBe(200)
     expect(second.quoteSummary.stale).toBe(1)
-    expect(second.warnings.some(warning => warning.includes('Quote batch fetch failed'))).toBe(true)
+    expect(second.warnings.some(warning => warning.startsWith('Prices not refreshed'))).toBe(true)
+  })
+
+  it('reports when prices were last fetched, not when the page was last built', async () => {
+    createInvestment()
+
+    fetchQuoteBatch.mockResolvedValueOnce({
+      byKey: new Map([[QUOTE_KEY, quoteSnapshot()]]),
+      errors: [],
+      requested: 1,
+    })
+
+    const first = await buildBalanceSheet('always')
+    expect(first.marketData.status).toBe('ok')
+    expect(first.marketData.quotesFetchedAt).not.toBeNull()
+
+    await new Promise(resolve => setTimeout(resolve, 15))
+
+    fetchQuoteBatch.mockRejectedValueOnce(noResponse())
+    const second = await buildBalanceSheet('always')
+
+    // The response is newer; the prices are not.
+    expect(Date.parse(second.generatedAt)).toBeGreaterThan(Date.parse(first.generatedAt))
+    expect(second.marketData.quotesFetchedAt).toBe(first.marketData.quotesFetchedAt)
+    expect(second.marketData.status).toBe('unreachable')
+    expect(Date.parse(second.marketData.checkedAt!)).toBeGreaterThan(Date.parse(first.marketData.checkedAt!))
+  })
+
+  it('keeps reporting an unreachable service on responses that make no attempt', async () => {
+    createInvestment()
+
+    fetchQuoteBatch.mockRejectedValueOnce(noResponse())
+    const failed = await buildBalanceSheet('always')
+    expect(failed.marketData.status).toBe('unreachable')
+    expect(failed.marketData.quotesFetchedAt).toBeNull()
+
+    const cached = await buildBalanceSheet('never')
+    expect(fetchQuoteBatch).toHaveBeenCalledTimes(1)
+    expect(cached.marketData.status).toBe('unreachable')
+
+    fetchQuoteBatch.mockResolvedValueOnce({
+      byKey: new Map([[QUOTE_KEY, quoteSnapshot()]]),
+      errors: [],
+      requested: 1,
+    })
+    const recovered = await buildBalanceSheet('always')
+    expect(recovered.marketData.status).toBe('ok')
+  })
+
+  it('tells an unreachable service apart from one that answered badly', async () => {
+    createInvestment()
+
+    fetchQuoteBatch.mockResolvedValueOnce({
+      byKey: new Map(),
+      errors: ['VWRA.L: symbol not found'],
+      requested: 1,
+    })
+    expect((await buildBalanceSheet('always')).marketData.status).toBe('degraded')
+
+    fetchQuoteBatch.mockRejectedValueOnce(Object.assign(new Error('bad gateway'), { status: 502 }))
+    expect((await buildBalanceSheet('always')).marketData.status).toBe('degraded')
+
+    fetchUsdToSgdFx.mockRejectedValueOnce(noResponse())
+    fetchQuoteBatch.mockResolvedValueOnce({
+      byKey: new Map([[QUOTE_KEY, quoteSnapshot()]]),
+      errors: [],
+      requested: 1,
+    })
+    expect((await buildBalanceSheet('always')).marketData.status).toBe('unreachable')
+  })
+
+  it('writes warnings a person can read, without the internal address', async () => {
+    createInvestment()
+
+    fetchQuoteBatch.mockRejectedValueOnce(noResponse())
+    fetchUsdToSgdFx.mockRejectedValueOnce(noResponse())
+    const sheet = await buildBalanceSheet('always')
+
+    expect(sheet.warnings).toContain(
+      'Exchange rate unavailable: the market-data service did not respond. USD/SGD totals are hidden.',
+    )
+    expect(sheet.warnings.some(warning => warning.startsWith(
+      'Prices not refreshed: the market-data service did not respond.',
+    ))).toBe(true)
+    for (const warning of sheet.warnings) {
+      expect(warning).not.toMatch(/127\.0\.0\.1|http:|\[POST\]|<no response>/)
+    }
   })
 
   it('downgrades a cached live quote when the partial batch omits it', async () => {
