@@ -164,7 +164,7 @@ the database mid-write, and restic encrypts client-side: R2 stores ciphertext.
 cd /home/nick/services/vesto
 cp deploy/offsite.env.example .env.offsite
 chmod 600 .env.offsite
-# fill in RESTIC_REPOSITORY, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
+# fill in RESTIC_REPOSITORY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
 # AWS_DEFAULT_REGION=auto and HA_VESTO_WEBHOOK
 
 # repository password: long, random, and also in the password manager
