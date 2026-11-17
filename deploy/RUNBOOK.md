@@ -164,7 +164,7 @@ the database mid-write, and restic encrypts client-side: R2 stores ciphertext.
 cd /home/nick/services/vesto
 cp deploy/offsite.env.example .env.offsite
 chmod 600 .env.offsite
-# fill in RESTIC_REPOSITORY, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
+# fill in RESTIC_REPOSITORY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
 # AWS_DEFAULT_REGION=auto and HA_VESTO_WEBHOOK
 
 # repository password: long, random, and also in the password manager
@@ -191,18 +191,30 @@ it, the first run initialises the repository and logs `backup finished`.
 
 ### Verify
 
+From `deploy/` on the NAS. `$COMPOSE` keeps the commands copy-pasteable:
+
 ```sh
+cd /home/nick/services/vesto/deploy
+COMPOSE="docker compose --project-name vesto-v2 --env-file ../.env -f docker-compose.nas.yml"
+
 # one run by hand, outside the loop
-docker compose ... exec offsite sh /usr/local/bin/offsite.sh --once
+$COMPOSE exec offsite sh /usr/local/bin/offsite.sh --once
 
 # the repository holds snapshots
-docker compose ... exec offsite restic snapshots
+$COMPOSE exec offsite restic snapshots
 
-# restore the newest snapshot and check it
-docker compose ... exec offsite restic restore latest --target /tmp/restore
-sqlite3 -readonly /tmp/restore/backups/vesto-v2-*.db \
+# restore the newest snapshot and check it on the host
+$COMPOSE exec offsite restic restore latest --target /tmp/restore
+SNAPSHOT=$($COMPOSE exec -T offsite sh -c 'ls /tmp/restore/backups/*.db | tail -1')
+docker cp "$($COMPOSE ps -q offsite):${SNAPSHOT}" /tmp/restored-vesto.db
+sqlite3 -readonly /tmp/restored-vesto.db \
   'PRAGMA integrity_check; select count(*) from asset_entries;'
+rm -f /tmp/restored-vesto.db
 ```
+
+The `restore` target is inside the container, so the file has to be copied out
+before the host's `sqlite3` can open it. Verified 2026-11-17: `ok`, 20 assets,
+0 liabilities, latest history row 2026-11-17.
 
 Compare the row count with the live database. Do this once when the service is
 set up and again whenever the retention policy changes.
