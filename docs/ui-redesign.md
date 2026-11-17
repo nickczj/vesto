@@ -28,9 +28,14 @@ at least one commit per slice, then squash-merged to `main` as `d945565`
 locally and on the remote. Slices 1 and 2 changed behaviour without changing
 the look, so they did not depend on any decision below.
 
-Outstanding after the merge: a look at the live page, and the cold first paint
-in the opposite theme that slice 2 skipped. The deployed image is tagged
-`sha-d945565ea00a765c7f1195b35e758d81f804fefd`.
+Verified live after the merge (2026-11-17, 16:19 SGT): the ledger, the
+net-worth headline, the change since the 08:00 snapshot, the drawdown, the
+history card and parentheses for losses all render, and the header chip reports
+the last quote time. A cold load with `prefers-color-scheme: dark` and a stored
+`light` preference stays light and keeps `color-scheme: light`, which closes the
+slice 2 check. The deployed image is tagged
+`sha-d945565ea00a765c7f1195b35e758d81f804fefd`; the docs commit that followed it
+redeployed the same code. Playwright e2e is still unrun.
 
 ## Direction
 
@@ -414,6 +419,10 @@ draw a chart; a fresh copy has none until the snapshot sidecar has run twice.
   pending review.
 - **2026-11-17** — PR #24 squash-merged to `main` as `d945565` and deployed
   (run `44042860285`). The tree at `4616d2b` is identical to `d945565`, so the
-  squash lost nothing. The branch is deleted locally and on the remote. Still
-  outstanding: the post-merge look at the live page, and the cold first paint
-  in the opposite theme that slice 2 skipped.
+  squash lost nothing. The branch is deleted locally and on the remote.
+- **2026-11-17, 16:19 SGT — live check.** The deployed page at
+  `finance.nickczj.com` renders the ledger, the S$ headline, "since the 08:00
+  snapshot", the drawdown, the history card and parenthesised losses. With
+  `prefers-color-scheme: dark` emulated and a stored `light` preference, a cold
+  load stays light and keeps `color-scheme: light`; the inline theme script is
+  in `<head>`. That closes the slice 2 check. Playwright e2e remains unrun.
