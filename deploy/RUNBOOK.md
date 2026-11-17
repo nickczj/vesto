@@ -12,6 +12,9 @@ secret `NAS_DEPLOY_PATH` points at it).
 | `backups/vesto-v2-<timestamp>.db` | Consistent snapshots, written by the `backup` service |
 | `data/restore-archive/` | Automatic copy of the database taken before a restore |
 | `.env` | Runtime secrets and ports (not in git) |
+| `.env.offsite` | R2 credentials and the Home Assistant webhook (not in git) |
+| `deploy/restic-password` | Restic repository password, 0600 (not in git) |
+| `deploy/offsite.sh` | The off-site job, synced by the deploy |
 
 ## Why not `cp`
 

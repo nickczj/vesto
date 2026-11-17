@@ -333,7 +333,7 @@ the fixed 45s poll, and a complete Excel export.
 
 ## Verifying locally
 
-Node 24 is required. Use a copy of the database so nothing real is edited.
+Node 26 is required (`.nvmrc`). Use a copy of the database so nothing real is edited.
 
 ```bash
 cd vesto-go && make db-up && make run

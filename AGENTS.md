@@ -8,8 +8,8 @@
 ## Product Rules
 1. Primary screen is a concise grouped balance sheet table.
 2. Net worth is always derived as `total assets - total liabilities` in both USD and SGD.
-3. `vesto-go` is market-data only in v1 (quotes + FX). Portfolio records stay in Nuxt SQLite.
-4. v1 supports `USD` and `SGD` only.
+3. `vesto-go` is market-data only (quotes + FX + provider health). Portfolio records stay in Nuxt SQLite.
+4. Vesto supports `USD` and `SGD` only.
 5. Daily valuation history is captured once per SGT day at 08:00. There is no
    backfill; a missed day is a permanent hole. Portfolio drawdown is a read-time
    view over that series, not a separate service or alert.

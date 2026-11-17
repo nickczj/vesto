@@ -4,6 +4,7 @@
 OpenAPI contract currently exposes:
 - Quote endpoints (`/v1/quotes/latest`, `/v1/quotes/latest/batch`)
 - FX endpoints (`/api/market/fx`, `/api/market/fx/batch`)
+- Provider health (`/v1/sources`)
 
 ## Gaps for Full Portfolio Ownership
 `vesto-go` does not currently expose portfolio record CRUD for:

@@ -3,13 +3,14 @@
 Balance-sheet-first personal finance tracker built with Nuxt 4.
 
 ## Highlights
-- Single grouped table for assets + liabilities + net worth.
-- Dual-currency valuation (native, USD, SGD) on every row.
+- One ledger-style balance sheet: net-worth headline, section subtotals, sorted table.
+- Dual-currency valuation (native, USD, SGD) on every row; `unpriced` rows are excluded, never zeroed.
+- Nightly valuation history with a trend chart and read-time drawdown.
 - Local SQLite record ownership for assets/liabilities.
-- `vesto-go` integration for live quotes and USD/SGD FX.
-- Manual CRUD flows with optimistic updates.
-- 45-second auto-refresh while tab is visible + manual refresh.
-- Consistent daily SQLite snapshots and HTTP Basic auth in production.
+- `vesto-go` integration for live quotes, provider health and USD/SGD FX.
+- Manual CRUD dialogs, an Excel export, and per-device view settings.
+- 45-second auto-refresh while the tab is visible, plus manual refresh.
+- Consistent daily SQLite snapshots, an encrypted off-site copy, and HTTP Basic auth in production.
 
 ## Documentation
 - [AGENTS.md](./AGENTS.md)
@@ -18,13 +19,14 @@ Balance-sheet-first personal finance tracker built with Nuxt 4.
 - [API Gaps](./docs/api-gaps.md)
 
 ## Prerequisites
-- Node.js 20+
+- Node.js 26 (`.nvmrc`)
 - npm 10+
 - Optional: running `vesto-go` backend for live prices (`NUXT_VESTO_GO_BASE_URL`)
 
 ## Setup
 ```bash
-npm install
+nvm use
+npm ci
 npm run dev
 ```
 
@@ -52,14 +54,18 @@ migration under `server/database/migrations/`.
 - `GET/POST/PATCH/DELETE /api/assets`
 - `GET/POST/PATCH/DELETE /api/liabilities`
 - `GET /api/sources?refresh=stale|always` — proxy for vesto-go provider health
+- `GET /api/instruments/resolve?symbol=&market=` — ticker lookup for the add/edit dialog
 - `GET /api/history?days=365` — daily valuation history and read-time drawdown
 - `POST /api/snapshots` — authenticated, idempotent daily capture
 - `GET /api/healthz`
 
 ## Backups
 The NAS stack runs a `backup` service that writes consistent daily snapshots
-with SQLite's online backup API (a plain file copy is unsafe in WAL mode).
-See [deploy/RUNBOOK.md](./deploy/RUNBOOK.md) for the restore procedure.
+with SQLite's online backup API (a plain file copy is unsafe in WAL mode), and an
+`offsite` service that copies those snapshots to Cloudflare R2 with restic. The
+off-site service reads `../.env.offsite` and reports every run to Home Assistant.
+See [deploy/RUNBOOK.md](./deploy/RUNBOOK.md) for setup, the restore procedure and
+the alert meanings.
 
 ## History
 The `snapshot` sidecar calls the authenticated `POST /api/snapshots` endpoint
@@ -72,7 +78,9 @@ and is never stored.
 
 ## Testing
 ```bash
-npm test
+npm test          # unit
+npm run typecheck
+npm run test:e2e  # builds, then runs Playwright against ./data/e2e.db
 ```
 
 ## Build
@@ -121,9 +129,10 @@ Important runtime env notes:
 - `NUXT_VESTO_GO_BASE_URL` can use shared Docker DNS (`http://vesto-api:8080`) when both stacks are on `SHARED_DOCKER_NETWORK`.
 - `NUXT_AUTH_USER` / `NUXT_AUTH_PASSWORD` protect every route except `/api/healthz` and static assets.
 - `BACKUP_RETENTION_DAYS` (default `14`) and `BACKUP_INTERVAL_SECS` (default `86400`) control snapshots.
+  The off-site copy reads R2 credentials from `.env.offsite`; see `deploy/offsite.env.example`.
 
 ### Deploy behavior
-- Pulls and starts `ghcr.io/<owner>/vesto-v2:sha-<commit>` plus the `backup` sidecar.
+- Pulls and starts `ghcr.io/<owner>/vesto-v2:sha-<commit>` plus the `backup`, `snapshot` and `offsite` sidecars.
 - Persists SQLite data under `${NAS_DEPLOY_PATH}/data` and snapshots under `${NAS_DEPLOY_PATH}/backups`.
 - Performs bounded health check on `http://127.0.0.1:${APP_PORT}/api/healthz` (public).
 - Automatically rolls back to previous image tag if health check fails.

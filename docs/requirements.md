@@ -23,6 +23,9 @@ Build a single-user personal finance application that presents a full balance sh
   - SGD amount
 - Auto-refresh every 45 seconds while page is visible.
 - Manual refresh button.
+- One valuation row per SGT day at 08:00, captured by a sidecar through
+  `POST /api/snapshots`; a trend chart and read-time drawdown over complete days.
+  No backfill, and no intraday series.
 - Legacy v1 data was already imported; the endpoint was removed in Phase 2.
 
 ## API Requirements
@@ -44,6 +47,8 @@ Build a single-user personal finance application that presents a full balance sh
 
 ## Non-Functional Requirements
 - Deterministic server-side valuation logic.
-- Partial upstream failures must degrade gracefully (manual/book fallback).
-- Snapshot-only v1; no historical performance analytics.
+- Partial upstream failures must degrade gracefully: fall back to a manual price
+  when one exists, otherwise mark the row `unpriced`. Never zero, never 1:1 FX.
+- The daily series is captured forward only. There is no intraday history, no
+  backfill and no benchmark comparison.
 - Desktop-first responsive UI.

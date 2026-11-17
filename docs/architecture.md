@@ -10,8 +10,10 @@
 ## Subsystems
 - `server/database/*`: schema and connection management.
 - `server/services/*`:
-  - valuation, FX conversion, subtotal/net-worth aggregation
-  - snapshot cache persistence
+  - `valuation.ts`: FX conversion, row valuation, subtotal/net-worth aggregation
+  - `balance-sheet.ts`: the single valuation path used by the page and the snapshot
+  - `history.ts` / `history-repository.ts`: daily series and read-time drawdown
+  - `snapshot-cache.ts`: quote/FX persistence across restarts
 - `server/utils/vesto-go.ts`: external HTTP client with timeout/retry.
 - `server/api/*`: REST endpoints with `zod` validation.
 - `app/components/*`: table + modal CRUD UI.
@@ -28,15 +30,25 @@
 8. UI renders grouped table and totals.
 
 ## Error/Fallback Strategy
-- If quote fetch fails for a row:
-  - use manual unit price when available
-  - otherwise use book/native amount
-  - annotate warning in response
-- If FX fetch fails:
-  - reuse recent in-memory FX snapshot if present
-  - otherwise fall back to identity rate with warning
+- If a quote fetch fails for a row:
+  - use the manual price when the holding has one
+  - otherwise mark the row `unpriced`; it contributes nothing to totals and is
+    counted in `quoteSummary.unpriced`
+  - never substitute `asset.amount` for an investment, and never report P&L as
+    0.00 when the price did not come from a market quote
+- A quote in a currency that is not the row's fixed currency is ignored with a
+  warning; the row falls back rather than being relabelled
+- If FX is unavailable:
+  - reuse the persisted snapshot, marked stale
+  - if none has ever been stored, render native amounts only with an "FX
+    unavailable" banner. There is no 1:1 fallback and no partial total.
 
 ## Refresh Modes
 - `never`: use cached snapshots only; do not call external APIs.
 - `stale`: refresh only when snapshot cache is missing/expired.
-- `always`: force external fetch attempts for current symbols + FX.
+- `always`: ask `vesto-go` for a refresh. It is a request, not a command;
+  `vesto-go` may still answer from its cache. The page and the snapshot sidecar
+  use it to mean "accept a network attempt".
+
+The valuation snapshot sidecar calls the same `buildBalanceSheet('always')`
+path; valuation logic never lives in the script or in SQL.
