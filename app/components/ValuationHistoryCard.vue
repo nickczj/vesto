@@ -11,18 +11,34 @@
         </p>
       </div>
 
-      <div class="segmented history-range" role="group" aria-label="History range">
-        <button
-          v-for="option in HISTORY_RANGES"
-          :key="option.value"
-          type="button"
-          class="segmented-option"
-          :class="{ active: range === option.value }"
-          :aria-pressed="range === option.value"
-          @click="range = option.value"
-        >
-          {{ option.label }}
-        </button>
+      <div class="history-controls">
+        <div class="segmented history-series" role="group" aria-label="History series">
+          <button
+            v-for="option in HISTORY_SERIES"
+            :key="option.value"
+            type="button"
+            class="segmented-option"
+            :class="{ active: series === option.value }"
+            :aria-pressed="series === option.value"
+            @click="series = option.value"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+
+        <div class="segmented history-range" role="group" aria-label="History range">
+          <button
+            v-for="option in HISTORY_RANGES"
+            :key="option.value"
+            type="button"
+            class="segmented-option"
+            :class="{ active: range === option.value }"
+            :aria-pressed="range === option.value"
+            @click="range = option.value"
+          >
+            {{ option.label }}
+          </button>
+        </div>
       </div>
     </header>
 
@@ -73,6 +89,10 @@
       </svg>
     </div>
 
+    <p v-else-if="history && series === 'exCpf' && exCpfPoints.length < 2" class="history-note muted">
+      {{ exCpfStartNote }}
+    </p>
+
     <p v-else-if="history && completePoints.length >= 2" class="history-note muted">
       Not enough history in this range. Choose a wider range.
     </p>
@@ -92,8 +112,11 @@
     </p>
 
     <p v-if="history" class="history-note muted">
-      <template v-if="peak">
-        Peak {{ formatCurrency(peak.netWorthSgd, 'SGD') }} on {{ formatShortDate(peak.asOfDate) }}.
+      <template v-if="peakText">
+        {{ peakText }}
+      </template>
+      <template v-if="series === 'exCpf' && exCpfFirstDate">
+        Ex-CPF series starts {{ formatHistoryDate(exCpfFirstDate) }}.
       </template>
       History starts {{ history.firstCompleteDate ? formatHistoryDate(history.firstCompleteDate) : 'with the first snapshot' }} and cannot be backfilled.
     </p>
@@ -108,7 +131,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { ValuationHistoryPoint, ValuationHistoryResponse } from '~~/shared/types/history'
 import { formatCurrency, formatHistoryDate, formatShortDate } from '~/utils/formatters'
-import { HISTORY_CHART_PADDING as PADDING, buildHistoryChart } from '~/utils/history-chart'
+import { HISTORY_CHART_PADDING as PADDING, buildHistoryChart, historySeriesValue, type HistorySeries } from '~/utils/history-chart'
 import {
   DEFAULT_HISTORY_RANGE,
   HISTORY_RANGES,
@@ -122,14 +145,34 @@ const props = defineProps<{
   error: string | null
 }>()
 
+const HISTORY_SERIES: Array<{ value: HistorySeries, label: string }> = [
+  { value: 'total', label: 'Total' },
+  { value: 'exCpf', label: 'Ex-CPF' },
+]
+
 const range = ref(DEFAULT_HISTORY_RANGE)
+const series = ref<HistorySeries>('total')
 
 const completePoints = computed<ValuationHistoryPoint[]>(
   () => (props.history?.points || []).filter(point => point.isComplete),
 )
 
 const displayPoints = computed(() => filterHistoryByRange(completePoints.value, range.value))
-const peak = computed(() => peakHistoryPoint(completePoints.value, 'SGD'))
+const exCpfPoints = computed(() => completePoints.value.filter(point => point.netWorthExCpfSgd !== null))
+const exCpfFirstDate = computed(() => exCpfPoints.value[0]?.asOfDate ?? null)
+const exCpfStartNote = computed(() => exCpfPoints.value.length === 0
+  ? 'Ex-CPF history starts at the next 08:00 snapshot. It cannot be backfilled.'
+  : 'One ex-CPF day captured. A trend needs two; check back tomorrow.')
+const peak = computed(() => peakHistoryPoint(completePoints.value, 'SGD', series.value))
+
+const peakText = computed(() => {
+  if (!peak.value) return null
+
+  const value = series.value === 'exCpf' ? peak.value.netWorthExCpfSgd : peak.value.netWorthSgd
+  if (value === null) return null
+
+  return `Peak ${formatCurrency(value, 'SGD')} on ${formatShortDate(peak.value.asOfDate)}.`
+})
 
 // The chart is drawn at the card's measured width and a fixed height. Letting
 // the SVG scale with the page made it ~400px tall with ~21px axis text.
@@ -151,12 +194,18 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
 })
 
-const chart = computed(() => buildHistoryChart(displayPoints.value, chartWidth.value))
+const chart = computed(() => buildHistoryChart(displayPoints.value, chartWidth.value, series.value))
 
 const chartSummary = computed(() => {
   if (!chart.value) return ''
+
   const { first, last } = chart.value
-  return `Net worth in SGD from ${first.point.asOfDate} to ${last.point.asOfDate}, `
-    + `${formatCurrency(first.point.netWorthSgd, 'SGD')} to ${formatCurrency(last.point.netWorthSgd, 'SGD')}.`
+  const firstValue = historySeriesValue(first.point, series.value)
+  const lastValue = historySeriesValue(last.point, series.value)
+  if (firstValue === null || lastValue === null) return ''
+
+  const label = series.value === 'exCpf' ? 'Net worth excluding CPF' : 'Net worth'
+  return `${label} in SGD from ${first.point.asOfDate} to ${last.point.asOfDate}, `
+    + `${formatCurrency(firstValue, 'SGD')} to ${formatCurrency(lastValue, 'SGD')}.`
 })
 </script>

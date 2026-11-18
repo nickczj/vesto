@@ -14,6 +14,8 @@ function record(overrides: Partial<ValuationHistoryRecord>): ValuationHistoryRec
     capturedAt: '2026-11-16T00:00:00.000Z',
     netWorthUsd: 100,
     netWorthSgd: 130,
+    netWorthExCpfUsd: 100,
+    netWorthExCpfSgd: 130,
     assetsUsd: 150,
     liabilitiesUsd: 50,
     fxUsdSgd: 1.3,
@@ -114,10 +116,32 @@ describe('history record capture', () => {
       isComplete: false,
       netWorthUsd: 100,
       netWorthSgd: 130,
+      netWorthExCpfUsd: 100,
+      netWorthExCpfSgd: 130,
       assetsUsd: 150,
       liabilitiesUsd: 50,
       fxUsdSgd: 1.3,
     })
+  })
+
+  it('records net worth less the CPF subtotal', () => {
+    const base = sheet()
+    const captured = buildHistoryRecord(
+      {
+        ...base,
+        totals: {
+          ...base.totals,
+          sections: {
+            ...base.totals.sections,
+            cpf: { usd: 20, sgd: 26 },
+          },
+        },
+      },
+      new Date('2026-11-16T00:00:00Z'),
+    )
+
+    expect(captured?.netWorthExCpfUsd).toBe(80)
+    expect(captured?.netWorthExCpfSgd).toBe(104)
   })
 
   it('does not overwrite a complete day unless forced', () => {

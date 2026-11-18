@@ -8,6 +8,7 @@ test('renders balance sheet shell', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Export' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'View' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'History series' }).getByRole('button', { name: 'Ex-CPF' })).toBeVisible()
 })
 
 test('opens the two-column add asset dialog', async ({ page }) => {

@@ -60,12 +60,17 @@ describe('schema migrations', () => {
     const applied = useSqlite()
       .prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations')
       .get() as { n: number }
-    expect(applied.n).toBe(5)
+    expect(applied.n).toBe(6)
 
     const history = useSqlite()
       .prepare("SELECT COUNT(*) AS n FROM pragma_table_info('valuation_history')")
       .get() as { n: number }
-    expect(history.n).toBe(10)
+    expect(history.n).toBe(12)
+
+    const exCpf = useSqlite()
+      .prepare("SELECT COUNT(*) AS n FROM pragma_table_info('valuation_history') WHERE name IN ('net_worth_ex_cpf_usd', 'net_worth_ex_cpf_sgd')")
+      .get() as { n: number }
+    expect(exCpf.n).toBe(2)
   })
 
   it('rebuilt the tables with HKD allowed and the unique index intact', () => {

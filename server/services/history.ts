@@ -113,6 +113,8 @@ export function buildHistoryRecord(
     capturedAt: now.toISOString(),
     netWorthUsd: roundMoney(sheet.totals.netWorth.usd),
     netWorthSgd: roundMoney(sheet.totals.netWorth.sgd),
+    netWorthExCpfUsd: roundMoney(sheet.totals.netWorth.usd - sheet.totals.sections.cpf.usd),
+    netWorthExCpfSgd: roundMoney(sheet.totals.netWorth.sgd - sheet.totals.sections.cpf.sgd),
     assetsUsd: roundMoney(sheet.totals.totalAssets.usd),
     liabilitiesUsd: roundMoney(sheet.totals.totalLiabilities.usd),
     fxUsdSgd: roundRate(sheet.fx.usdToSgd),

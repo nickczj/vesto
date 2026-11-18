@@ -5,12 +5,18 @@ import { useDb } from '~~/server/utils/db'
 
 type ValuationHistoryRow = typeof valuationHistory.$inferSelect
 
+function optionalNumber(value: number | null): number | null {
+  return value === null ? null : Number(value)
+}
+
 function toDomain(row: ValuationHistoryRow): ValuationHistoryRecord {
   return {
     asOfDate: row.asOfDate,
     capturedAt: row.capturedAt,
     netWorthUsd: Number(row.netWorthUsd),
     netWorthSgd: Number(row.netWorthSgd),
+    netWorthExCpfUsd: optionalNumber(row.netWorthExCpfUsd),
+    netWorthExCpfSgd: optionalNumber(row.netWorthExCpfSgd),
     assetsUsd: Number(row.assetsUsd),
     liabilitiesUsd: Number(row.liabilitiesUsd),
     fxUsdSgd: Number(row.fxUsdSgd),
@@ -58,6 +64,8 @@ export function upsertValuationHistory(record: ValuationHistoryRecord): void {
       capturedAt: record.capturedAt,
       netWorthUsd: record.netWorthUsd,
       netWorthSgd: record.netWorthSgd,
+      netWorthExCpfUsd: record.netWorthExCpfUsd,
+      netWorthExCpfSgd: record.netWorthExCpfSgd,
       assetsUsd: record.assetsUsd,
       liabilitiesUsd: record.liabilitiesUsd,
       fxUsdSgd: record.fxUsdSgd,
@@ -71,6 +79,8 @@ export function upsertValuationHistory(record: ValuationHistoryRecord): void {
         capturedAt: record.capturedAt,
         netWorthUsd: record.netWorthUsd,
         netWorthSgd: record.netWorthSgd,
+        netWorthExCpfUsd: record.netWorthExCpfUsd,
+        netWorthExCpfSgd: record.netWorthExCpfSgd,
         assetsUsd: record.assetsUsd,
         liabilitiesUsd: record.liabilitiesUsd,
         fxUsdSgd: record.fxUsdSgd,

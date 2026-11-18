@@ -12,6 +12,8 @@ function point(asOfDate: string, netWorthSgd: number, isComplete = true): Valuat
     capturedAt: `${asOfDate}T00:00:00.000Z`,
     netWorthUsd: netWorthSgd / 1.3,
     netWorthSgd,
+    netWorthExCpfUsd: (netWorthSgd - 20) / 1.3,
+    netWorthExCpfSgd: netWorthSgd - 20,
     assetsUsd: netWorthSgd / 1.3,
     liabilitiesUsd: 0,
     fxUsdSgd: 1.3,
@@ -72,6 +74,17 @@ describe('history peak', () => {
 
   it('ignores incomplete days and returns null when nothing is complete', () => {
     expect(peakHistoryPoint([point('2026-11-17', 100, false)], 'SGD')).toBeNull()
+  })
+
+  it('finds the ex-CPF peak and skips rows without the column', () => {
+    const points = [
+      { ...point('2026-11-14', 100), netWorthExCpfUsd: null, netWorthExCpfSgd: null },
+      { ...point('2026-11-15', 300), netWorthExCpfUsd: 180 / 1.3, netWorthExCpfSgd: 180 },
+      { ...point('2026-11-16', 200), netWorthExCpfUsd: 190 / 1.3, netWorthExCpfSgd: 190 },
+    ]
+
+    expect(peakHistoryPoint(points, 'SGD', 'exCpf')?.asOfDate).toBe('2026-11-16')
+    expect(peakHistoryPoint(points, 'USD', 'exCpf')?.asOfDate).toBe('2026-11-16')
   })
 })
 
