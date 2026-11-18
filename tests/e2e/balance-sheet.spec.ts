@@ -8,6 +8,10 @@ test('renders balance sheet shell', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Export' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'View' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add' })).toBeVisible()
+  // The P&L and return columns are price measures, not SGD returns since
+  // purchase; the labels are part of the contract (D-046).
+  await expect(page.getByRole('button', { name: /Price gain\/loss \(SGD\)/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Price return/ })).toBeVisible()
 })
 
 test('opens the two-column add asset dialog', async ({ page }) => {

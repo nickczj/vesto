@@ -228,7 +228,7 @@ function sortWithinSection(getValue: (row: BalanceSheetRow) => number | null): S
   }
 }
 
-function sortableHeader(label: string) {
+function sortableHeader(label: string, description?: string) {
   return (context: any) => {
     const column = context.column as {
       getToggleSortingHandler?: () => ((event: unknown) => void) | undefined
@@ -244,6 +244,7 @@ function sortableHeader(label: string) {
         class: 'sort-button',
         onClick,
         type: 'button',
+        title: description,
       },
       [
         h('span', label),
@@ -425,7 +426,10 @@ const columns = [
   }),
   columnHelper.accessor(row => row.pnlSgd, {
     id: 'pnl',
-    header: sortableHeader('Gain/loss SGD'),
+    header: sortableHeader(
+      'Price gain/loss (SGD)',
+      "Price change in the holding's currency, converted at today's FX. FX movement since purchase is excluded.",
+    ),
     cell: ({ row }) => {
       const text = pnlText(row.original)
       if (text === '') return ''
@@ -436,7 +440,10 @@ const columns = [
   }),
   columnHelper.display({
     id: 'return',
-    header: sortableHeader('Return'),
+    header: sortableHeader(
+      'Price return',
+      "Price gain/loss divided by cost basis, both in the holding's currency. FX movement since purchase is excluded.",
+    ),
     cell: ({ row }) => {
       const text = returnText(row.original)
       if (text === '') return ''

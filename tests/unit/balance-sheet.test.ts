@@ -225,6 +225,9 @@ describe('balance sheet service', () => {
     expect(row?.source).toBe('stale')
     expect(row?.provider).toBe('yahoo_unofficial_api')
     expect(row?.costBasisNative).toBe(10000)
+    // Price P&L, not the SGD return since purchase: the native gain is
+    // converted at today's rate (50,000 HKD x 0.164). A purchase-date rate
+    // would add the FX movement on the cost basis, which is deliberately out.
     expect(row?.pnlNative).toBe(50000)
     expect(row?.pnlSgd).toBe(8200)
     expect(sheet.warnings.some(warning => warning.includes('HKD'))).toBe(false)

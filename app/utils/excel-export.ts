@@ -41,7 +41,7 @@ type DetailExportRow = {
   Bought: number | ''
   Current: number | ''
   CostBasisNative: number | ''
-  PnlSGD: number | ''
+  PricePnlSGD: number | ''
   Symbol: string
   Market: string
   Notes: string
@@ -69,7 +69,7 @@ function toDetailRow(row: BalanceSheetRow): DetailExportRow {
     Bought: excelNumber(row.boughtUnitPrice),
     Current: excelNumber(row.currentUnitPrice),
     CostBasisNative: excelNumber(row.costBasisNative),
-    PnlSGD: priced ? excelNumber(row.pnlSgd) : '',
+    PricePnlSGD: priced ? excelNumber(row.pnlSgd) : '',
     Symbol: row.symbol || '',
     Market: row.market || '',
     Notes: row.notes || '',
@@ -94,7 +94,7 @@ export function toDetailRows(sheet: BalanceSheetResponse): DetailExportRow[] {
       Bought: '',
       Current: '',
       CostBasisNative: '',
-      PnlSGD: '',
+      PricePnlSGD: '',
       Symbol: '',
       Market: '',
       Notes: 'Derived as total assets - total liabilities',

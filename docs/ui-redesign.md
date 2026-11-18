@@ -197,10 +197,13 @@ How each was done:
   under net worth. Total assets is rendered after the last asset section, the
   way a balance sheet reads. Parentheses mark losses and liabilities, gains
   carry a plus, and weights are unsigned.
-- **Derived values.** Return is `P&L / cost basis` and weight is the row's
-  share of total assets. Rows that never had a market price (manual prices,
-  cash, CPF) stay out of return rather than diluting it. The rules live in
-  `app/utils/ledger.ts` with unit tests.
+- **Derived values.** Price return is `price P&L / cost basis`, both in the
+  holding's own currency; the SGD rate cancels, so it is not an SGD return
+  since purchase. The P&L column converts the native price change at today's
+  FX, and its header and tooltip say FX movement since purchase is excluded.
+  Weight is the row's share of total assets. Rows that never had a market price
+  (manual prices, cash, CPF) stay out of return rather than diluting it. The
+  rules live in `app/utils/ledger.ts` with unit tests.
 - **Placeholder.** `—` is the single placeholder for a value that applies but
   is unknown (unpriced, no cost basis, no FX). A blank cell means the column
   does not apply to that row at all, such as quantity on a liability.
