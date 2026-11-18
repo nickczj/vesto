@@ -13,6 +13,8 @@ function point(asOfDate: string, netWorthSgd: number): ValuationHistoryPoint {
     capturedAt: `${asOfDate}T00:00:00.000Z`,
     netWorthUsd: netWorthSgd / 1.3,
     netWorthSgd,
+    netWorthExCpfUsd: (netWorthSgd * 0.8) / 1.3,
+    netWorthExCpfSgd: netWorthSgd * 0.8,
     assetsUsd: netWorthSgd / 1.3,
     liabilitiesUsd: 0,
     fxUsdSgd: 1.3,
@@ -74,5 +76,27 @@ describe('history chart geometry', () => {
 
     expect(chart.first.y).toBe(top + (HISTORY_CHART_HEIGHT - top - bottom) / 2)
     expect(chart.line).not.toContain('NaN')
+  })
+
+  it('plots the ex-CPF series from the first row that has it', () => {
+    const points = [
+      { ...point('2026-11-14', 100), netWorthExCpfUsd: null, netWorthExCpfSgd: null },
+      point('2026-11-15', 300),
+      point('2026-11-16', 200),
+    ]
+    const chart = buildHistoryChart(points, 1000, 'exCpf')!
+
+    expect(chart.first.point.asOfDate).toBe('2026-11-15')
+    expect(chart.last.point.asOfDate).toBe('2026-11-16')
+    expect(chart.grid.map(line => line.value)).toEqual([240, 200, 160])
+  })
+
+  it('needs two ex-CPF points before drawing that series', () => {
+    const points = [
+      point('2026-11-15', 300),
+      { ...point('2026-11-16', 200), netWorthExCpfUsd: null, netWorthExCpfSgd: null },
+    ]
+
+    expect(buildHistoryChart(points, 1000, 'exCpf')).toBeNull()
   })
 })

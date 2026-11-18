@@ -67,6 +67,8 @@
   saving. It returns a status and a plain sentence; a provider outage does not
   block a save.
 - `GET /api/history?days=365` — daily valuation series plus read-time drawdown.
+  Each point also carries `netWorthExCpfUsd`/`netWorthExCpfSgd`; rows captured
+  before the column existed are null and are never backfilled.
 - `POST /api/snapshots` — authenticated, idempotent capture for the current SGT
   date. `?force=always` overwrites a complete day; normal retries may only
   improve an incomplete one.
@@ -109,6 +111,14 @@
   complete days only, shows SGD as the headline, and reports drawdown from the
   running peak at read time. Incomplete days are counted but excluded from the
   chart and drawdown.
+- The history card plots one series at a time: **Total** or **Ex-CPF**. The
+  Ex-CPF series starts at the first capture that has the column and cannot be
+  backfilled. Drawdown stays on total net worth; the peak note follows the
+  selected series. Only the chart series switches.
+- The hero shows **Excluding CPF** as a secondary line under the assets and
+  liabilities breakdown. It is `netWorth - sections.cpf` from the current
+  sheet, follows the primary currency toggle, and never changes the headline,
+  the history series default or the drawdown.
 - Say that history starts when the series starts and cannot be backfilled.
 - View preferences live in the header `View` popover: density, primary
   currency, section visibility, columns (Source/Native), sticky header and

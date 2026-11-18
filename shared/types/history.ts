@@ -4,6 +4,13 @@ export interface ValuationHistoryRecord {
   capturedAt: string
   netWorthUsd: number
   netWorthSgd: number
+  /**
+   * Net worth less the CPF section subtotal. Null on rows captured before the
+   * column existed; the series starts at the first capture that has it and is
+   * never backfilled.
+   */
+  netWorthExCpfUsd: number | null
+  netWorthExCpfSgd: number | null
   assetsUsd: number
   liabilitiesUsd: number
   fxUsdSgd: number

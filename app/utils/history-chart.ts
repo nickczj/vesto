@@ -20,8 +20,17 @@ export interface HistoryChartGeometry {
   last: HistoryChartCoord
 }
 
+/** The history chart plots one SGD series at a time. */
+export type HistorySeries = 'total' | 'exCpf'
+
+export function historySeriesValue(point: ValuationHistoryPoint, series: HistorySeries): number | null {
+  return series === 'total' ? point.netWorthSgd : point.netWorthExCpfSgd
+}
+
 /**
- * Lays the net-worth series out in pixels.
+ * Lays the selected net-worth series out in pixels. Rows captured before the
+ * ex-CPF column existed have no value for that series, so they are skipped and
+ * the line starts at the first capture that has one.
  *
  * The chart is drawn at the measured width and a fixed height, so the SVG never
  * has to scale: scaling it with the page is what made the axis text grow.
@@ -29,14 +38,16 @@ export interface HistoryChartGeometry {
 export function buildHistoryChart(
   points: ValuationHistoryPoint[],
   measuredWidth: number,
+  series: HistorySeries = 'total',
 ): HistoryChartGeometry | null {
-  if (points.length < 2) return null
+  const usable = points.filter(point => historySeriesValue(point, series) !== null)
+  if (usable.length < 2) return null
 
   const padding = HISTORY_CHART_PADDING
   const width = Math.max(HISTORY_CHART_MIN_WIDTH, Math.round(measuredWidth))
   const height = HISTORY_CHART_HEIGHT
 
-  const values = points.map(point => point.netWorthSgd)
+  const values = usable.map(point => historySeriesValue(point, series) as number)
   const min = Math.min(...values)
   const max = Math.max(...values)
   const range = max - min
@@ -44,15 +55,15 @@ export function buildHistoryChart(
   const innerHeight = height - padding.top - padding.bottom
   const baseline = padding.top + innerHeight
 
-  const xFor = (index: number) => padding.left + (index / (points.length - 1)) * innerWidth
+  const xFor = (index: number) => padding.left + (index / (usable.length - 1)) * innerWidth
   const yFor = (value: number) => {
     const ratio = range === 0 ? 0.5 : (value - min) / range
     return padding.top + (1 - ratio) * innerHeight
   }
 
-  const coords = points.map((point, index) => ({
+  const coords = usable.map((point, index) => ({
     x: xFor(index),
-    y: yFor(point.netWorthSgd),
+    y: yFor(historySeriesValue(point, series) as number),
     point,
   }))
 

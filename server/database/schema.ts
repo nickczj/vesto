@@ -62,6 +62,13 @@ export const valuationHistory = sqliteTable('valuation_history', {
   capturedAt: text('captured_at').notNull(),
   netWorthUsd: real('net_worth_usd').notNull(),
   netWorthSgd: real('net_worth_sgd').notNull(),
+  /**
+   * Net worth less the CPF section subtotal. Null on rows captured before the
+   * column existed; the series starts at the first capture that has it and is
+   * never backfilled.
+   */
+  netWorthExCpfUsd: real('net_worth_ex_cpf_usd'),
+  netWorthExCpfSgd: real('net_worth_ex_cpf_sgd'),
   assetsUsd: real('assets_usd').notNull(),
   liabilitiesUsd: real('liabilities_usd').notNull(),
   fxUsdSgd: real('fx_usd_sgd').notNull(),

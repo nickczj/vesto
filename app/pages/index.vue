@@ -53,6 +53,13 @@
         <p class="hero-breakdown">
           Assets {{ assetsText }} less liabilities {{ liabilitiesText }}
         </p>
+        <p
+          v-if="hasCpf"
+          class="hero-ex-cpf"
+          :title="`Net worth less the CPF subtotal (${cpfText}).`"
+        >
+          Excluding CPF <strong>{{ exCpfText }}</strong>
+        </p>
         <p class="hero-fx" :class="{ warning: fxUnavailable }">{{ fxLine }}</p>
 
         <div v-if="snapshotDelta || drawdownDelta" class="hero-deltas">
@@ -175,6 +182,25 @@ const headline = computed(
 
 const assetsText = computed(() => displayLedgerValue(amountFor(sheet.value.totals.totalAssets, preferences.value.primaryCurrency)))
 const liabilitiesText = computed(() => displayLedgerValue(amountFor(sheet.value.totals.totalLiabilities, preferences.value.primaryCurrency)))
+
+const hasCpf = computed(() => sheet.value.totals.sections.cpf.sgd > 0 || sheet.value.totals.sections.cpf.usd > 0)
+const cpfText = computed(() => {
+  if (fxUnavailable.value) return '—'
+
+  return formatCurrency(
+    amountFor(sheet.value.totals.sections.cpf, preferences.value.primaryCurrency),
+    preferences.value.primaryCurrency,
+  )
+})
+const exCpfText = computed(() => {
+  const totals = sheet.value.totals
+  const pair = {
+    usd: totals.netWorth.usd - totals.sections.cpf.usd,
+    sgd: totals.netWorth.sgd - totals.sections.cpf.sgd,
+  }
+
+  return displayMoney(amountFor(pair, preferences.value.primaryCurrency), preferences.value.primaryCurrency)
+})
 
 const secondaryCurrency = computed<PrimaryCurrency>(
   () => (preferences.value.primaryCurrency === 'SGD' ? 'USD' : 'SGD'),

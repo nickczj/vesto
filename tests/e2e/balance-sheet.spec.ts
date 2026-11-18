@@ -12,6 +12,7 @@ test('renders balance sheet shell', async ({ page }) => {
   // purchase; the labels are part of the contract (D-046).
   await expect(page.getByRole('button', { name: /Price gain\/loss \(SGD\)/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /Price return/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'History series' }).getByRole('button', { name: 'Ex-CPF' })).toBeVisible()
 })
 
 test('opens the two-column add asset dialog', async ({ page }) => {

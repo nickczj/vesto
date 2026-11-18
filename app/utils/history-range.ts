@@ -46,11 +46,13 @@ export function filterHistoryByRange(
 
 /**
  * The first complete day at the series peak, for "from the peak on 4 Oct".
- * Ties favour the earlier day, which is when the peak was first reached.
+ * Ties favour the earlier day, which is when the peak was first reached. The
+ * ex-CPF series skips rows captured before the column existed.
  */
 export function peakHistoryPoint(
   points: ValuationHistoryPoint[],
   currency: 'SGD' | 'USD',
+  series: 'total' | 'exCpf' = 'total',
 ): ValuationHistoryPoint | null {
   let best: ValuationHistoryPoint | null = null
   let bestValue: number | null = null
@@ -58,7 +60,11 @@ export function peakHistoryPoint(
   for (const point of points) {
     if (!point.isComplete) continue
 
-    const value = currency === 'SGD' ? point.netWorthSgd : point.netWorthUsd
+    const value = series === 'exCpf'
+      ? (currency === 'SGD' ? point.netWorthExCpfSgd : point.netWorthExCpfUsd)
+      : (currency === 'SGD' ? point.netWorthSgd : point.netWorthUsd)
+
+    if (value === null) continue
     if (bestValue === null || value > bestValue) {
       best = point
       bestValue = value

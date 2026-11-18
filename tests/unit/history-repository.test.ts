@@ -26,6 +26,8 @@ describe('valuation history repository', () => {
       capturedAt: '2026-11-15T00:00:00.000Z',
       netWorthUsd: 100,
       netWorthSgd: 130,
+      netWorthExCpfUsd: null,
+      netWorthExCpfSgd: null,
       assetsUsd: 150,
       liabilitiesUsd: 50,
       fxUsdSgd: 1.3,
@@ -39,6 +41,8 @@ describe('valuation history repository', () => {
       capturedAt: '2026-11-16T00:00:00.000Z',
       netWorthUsd: 110,
       netWorthSgd: 143,
+      netWorthExCpfUsd: 90,
+      netWorthExCpfSgd: 117,
       assetsUsd: 160,
       liabilitiesUsd: 50,
       fxUsdSgd: 1.3,
@@ -52,6 +56,8 @@ describe('valuation history repository', () => {
       capturedAt: '2026-11-16T01:00:00.000Z',
       netWorthUsd: 120,
       netWorthSgd: 156,
+      netWorthExCpfUsd: 100,
+      netWorthExCpfSgd: 130,
       assetsUsd: 170,
       liabilitiesUsd: 50,
       fxUsdSgd: 1.3,
@@ -63,10 +69,13 @@ describe('valuation history repository', () => {
     const all = listValuationHistory()
     expect(all).toHaveLength(2)
     expect(all.map(row => row.asOfDate)).toEqual(['2026-11-15', '2026-11-16'])
+    expect(all[0]?.netWorthExCpfSgd).toBeNull()
     expect(getValuationHistoryByDate('2026-11-16')).toMatchObject({
       capturedAt: '2026-11-16T01:00:00.000Z',
       netWorthUsd: 120,
       netWorthSgd: 156,
+      netWorthExCpfUsd: 100,
+      netWorthExCpfSgd: 130,
       priced: 10,
       unpriced: 0,
       isComplete: true,
@@ -80,6 +89,8 @@ describe('valuation history repository', () => {
         capturedAt: `${date}T00:00:00.000Z`,
         netWorthUsd: 100,
         netWorthSgd: 130,
+        netWorthExCpfUsd: 80,
+        netWorthExCpfSgd: 104,
         assetsUsd: 150,
         liabilitiesUsd: 50,
         fxUsdSgd: 1.3,

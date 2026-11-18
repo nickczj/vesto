@@ -173,6 +173,19 @@ body {
   margin-top: 2px;
 }
 
+.hero-ex-cpf {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.hero-ex-cpf strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .hero-fx.warning {
   color: var(--amber);
   font-weight: 600;
@@ -235,6 +248,14 @@ body {
 
 .history-title {
   min-width: 0;
+}
+
+.history-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .history-chart-wrap {
@@ -1053,7 +1074,14 @@ body {
   padding: 2px;
 }
 
-.history-range .segmented-option {
+.history-series {
+  width: fit-content;
+  grid-auto-columns: auto;
+  padding: 2px;
+}
+
+.history-range .segmented-option,
+.history-series .segmented-option {
   padding: 1px 7px;
   font-size: 0.72rem;
   white-space: nowrap;
@@ -1163,6 +1191,10 @@ body {
   .history-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .history-controls {
+    justify-content: flex-start;
   }
 
   /* The View button sits on the left when the header wraps, so a
