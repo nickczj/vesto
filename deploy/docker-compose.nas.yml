@@ -2,6 +2,10 @@ services:
   vesto-v2:
     image: ${IMAGE_REPO}:${IMAGE_TAG}
     restart: unless-stopped
+    labels:
+      # Private image deployed by CI with immutable sha tags; Diun cannot
+      # authenticate and must not report it as an update failure.
+      - "diun.enable=false"
     env_file:
       - ../.env
     environment:
@@ -27,6 +31,8 @@ services:
   backup:
     image: ${IMAGE_REPO}:${IMAGE_TAG}
     restart: unless-stopped
+    labels:
+      - "diun.enable=false"
     depends_on:
       vesto-v2:
         condition: service_healthy
@@ -45,6 +51,8 @@ services:
   snapshot:
     image: ${IMAGE_REPO}:${IMAGE_TAG}
     restart: unless-stopped
+    labels:
+      - "diun.enable=false"
     depends_on:
       vesto-v2:
         condition: service_healthy
