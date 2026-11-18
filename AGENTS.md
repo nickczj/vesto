@@ -164,9 +164,13 @@
 ## Dependencies and Security
 - Apply minor/patch updates with `npm update` and `npm audit fix` (never
   `--force`), then run `npm test`, `npm run typecheck` and `npm run build`.
-- `npm run audit:prod` fails on high/critical production advisories. `xlsx` is
-  the one documented exception: it writes exports from self-authored data, and
-  no untrusted workbooks are parsed.
+- `npm run audit:prod` blocks on unique high/critical **advisories**, not on
+  every package that inherits one. Exceptions live in
+  `scripts/audit-gate-lib.mjs`, keyed by GHSA with a reason and a review date;
+  the weekly run re-checks them. Current exceptions: `xlsx` (write-only export
+  of self-authored data) and `picomatch` (build/router glob matching, no
+  user-supplied patterns, not in the built server or client bundle, no patched
+  version). Moderate/low findings are reported and left to Dependabot.
 - Dependabot opens grouped minor/patch PRs weekly; major upgrades
   (`@tanstack/vue-table`, `vitest`, `better-sqlite3`) are separate, deliberate
   changes.
