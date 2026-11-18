@@ -77,9 +77,11 @@ export function formatQuantity(value: number | null | undefined): string | null 
 }
 
 /**
- * A holding's return, only where the server actually computed P&L. A manual
- * price is not a market price, so those rows have no return rather than a
- * misleading one.
+ * A holding's price return, only where the server actually computed P&L. Both
+ * the P&L and the cost basis are converted at today's FX, so the rate cancels:
+ * this is the return in the holding's own currency, not the SGD return since
+ * purchase. A manual price is not a market price, so those rows have no return
+ * rather than a misleading one.
  */
 export function rowReturn(row: BalanceSheetRow): number | null {
   if (row.pnlSgd === null || row.costBasisSgd === null || row.costBasisSgd <= 0) {
@@ -104,7 +106,7 @@ export function shareOf(value: number | null | undefined, total: number | null |
   return amount / denominator
 }
 
-/** Sum of the P&L on rows that have one. Null when no row does. */
+/** Sum of the price P&L on rows that have one. Null when no row does. */
 export function sectionPnl(rows: BalanceSheetRow[]): number | null {
   const priced = rows.filter(row => row.pnlSgd !== null)
   if (priced.length === 0) return null
@@ -113,9 +115,11 @@ export function sectionPnl(rows: BalanceSheetRow[]): number | null {
 }
 
 /**
- * A section's return: the P&L it made over the cost basis that produced it.
- * Rows without P&L (manual prices, cash, CPF) stay out of both sides so their
- * cost basis cannot dilute the result.
+ * A section's price return: the P&L it made over the cost basis that produced
+ * it. Both sides are converted at today's FX, so the result is in local
+ * currencies, not an SGD return since purchase. Rows without P&L (manual
+ * prices, cash, CPF) stay out of both sides so their cost basis cannot dilute
+ * the result.
  */
 export function sectionReturn(rows: BalanceSheetRow[]): number | null {
   let pnl = 0

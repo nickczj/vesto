@@ -121,7 +121,7 @@ describe('excel export helpers', () => {
       Bought: '',
       Current: '',
       CostBasisNative: '',
-      PnlSGD: '',
+      PricePnlSGD: '',
       Symbol: '',
       Market: '',
       Notes: 'Derived as total assets - total liabilities',

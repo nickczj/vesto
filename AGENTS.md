@@ -95,6 +95,11 @@
   short venue label (`HKD · HKEX`). The add/edit dialog prefills the currency
   from a newly resolved ticker and warns when an existing row's currency
   differs from the quote, because the quote would be ignored.
+- The P&L column is **price P&L**: the holding's native price change converted
+  at today's FX. It is not the SGD return since purchase; the column and the
+  return are labelled `Price gain/loss (SGD)` and `Price return`, and their
+  tooltips say FX movement since purchase is excluded. Do not add a
+  cost-basis FX rate: true SGD return needs lots and acquisition dates.
 - Market codes are canonicalised in `shared/utils/markets.ts`; store `SEHK`,
   `LSE`, `AMS`, `SGX`, `NMS`, `NYQ` or `PCX`, not provider aliases such as
   `HKG`, `XLON` or `XAMS`.
