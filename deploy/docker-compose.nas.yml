@@ -1,6 +1,8 @@
 services:
   vesto-v2:
-    image: ${IMAGE_REPO}:${IMAGE_TAG}
+    # CI passes the commit tag. The fallback keeps the manual commands in
+    # RUNBOOK.md working on a host whose .env does not carry the image ref.
+    image: ${IMAGE_REPO:-ghcr.io/nickczj/vesto-v2}:${IMAGE_TAG:-main}
     restart: unless-stopped
     labels:
       # Private image deployed by CI with immutable sha tags; Diun cannot
