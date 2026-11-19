@@ -31,7 +31,7 @@ services:
   # file copy of vesto-v2.db can be empty; this service uses SQLite's online
   # backup API and verifies each snapshot.
   backup:
-    image: ${IMAGE_REPO}:${IMAGE_TAG}
+    image: ${IMAGE_REPO:-ghcr.io/nickczj/vesto-v2}:${IMAGE_TAG:-main}
     restart: unless-stopped
     labels:
       - "diun.enable=false"
@@ -51,7 +51,7 @@ services:
   # One valuation row per SGT day at 08:00. The app owns the valuation logic;
   # this sidecar only calls the authenticated /api/snapshots endpoint.
   snapshot:
-    image: ${IMAGE_REPO}:${IMAGE_TAG}
+    image: ${IMAGE_REPO:-ghcr.io/nickczj/vesto-v2}:${IMAGE_TAG:-main}
     restart: unless-stopped
     labels:
       - "diun.enable=false"
