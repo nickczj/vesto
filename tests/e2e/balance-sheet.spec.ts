@@ -22,6 +22,10 @@ test('opens the two-column add asset dialog', async ({ page }) => {
 
   await expect(page.getByRole('tab', { name: 'Investment' })).toBeVisible()
   await expect(page.getByLabel('Ticker')).toBeVisible()
+  const exchange = page.getByLabel(/^Exchange/)
+  await expect(exchange).toHaveAttribute('list', 'asset-market-options')
+  await expect(page.locator('#asset-market-options option')).toHaveCount(7)
+  await expect(page.locator('#asset-market-options option[value="SEHK"]')).toHaveText('HKEX')
   await expect(page.getByRole('button', { name: 'Add asset' })).toBeVisible()
 })
 

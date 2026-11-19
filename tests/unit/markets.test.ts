@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatCurrencyVenue,
+  isSupportedMarket,
   normalizeMarketCode,
+  SUPPORTED_MARKETS,
   venueLabel,
   venueTitle,
 } from '~~/shared/utils/markets'
@@ -29,6 +31,32 @@ describe('market normalization', () => {
     expect(normalizeMarketCode(null)).toBeNull()
     expect(normalizeMarketCode(undefined)).toBeNull()
     expect(normalizeMarketCode('   ')).toBeNull()
+  })
+})
+
+describe('supported markets', () => {
+  it('lists every canonical venue with a label', () => {
+    expect(SUPPORTED_MARKETS.map(market => market.code)).toEqual([
+      'NMS',
+      'NYQ',
+      'PCX',
+      'LSE',
+      'AMS',
+      'SGX',
+      'SEHK',
+    ])
+    for (const market of SUPPORTED_MARKETS) {
+      expect(market.venue.length).toBeGreaterThan(0)
+      expect(market.name.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('recognises canonical codes and aliases', () => {
+    expect(isSupportedMarket('NMS')).toBe(true)
+    expect(isSupportedMarket('HKG')).toBe(true)
+    expect(isSupportedMarket('XLON')).toBe(true)
+    expect(isSupportedMarket('JPX')).toBe(false)
+    expect(isSupportedMarket(null)).toBe(false)
   })
 })
 

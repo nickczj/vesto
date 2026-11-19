@@ -41,6 +41,30 @@ const VENUE_NAMES: Record<string, string> = {
   PCX: 'NYSE Arca',
 }
 
+/**
+ * The venues Vesto can label in the ledger. Kept in the same order a holding
+ * form should offer them. The Go service owns the same alias map; a new venue
+ * needs a row here and an entry in `marketAliases` there.
+ */
+const SUPPORTED_MARKET_CODES = ['NMS', 'NYQ', 'PCX', 'LSE', 'AMS', 'SGX', 'SEHK'] as const
+
+export interface SupportedMarket {
+  code: string
+  venue: string
+  name: string
+}
+
+export const SUPPORTED_MARKETS: readonly SupportedMarket[] = SUPPORTED_MARKET_CODES.map(code => ({
+  code,
+  venue: VENUE_LABELS[code]!,
+  name: VENUE_NAMES[code]!,
+}))
+
+export function isSupportedMarket(value: string | null | undefined): boolean {
+  const code = normalizeMarketCode(value)
+  return code !== null && (SUPPORTED_MARKET_CODES as readonly string[]).includes(code)
+}
+
 export function normalizeMarketCode(value: string | null | undefined): string | null {
   const normalized = value?.trim().toUpperCase()
   if (!normalized) return null

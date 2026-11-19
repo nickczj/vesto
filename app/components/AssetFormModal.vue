@@ -29,6 +29,7 @@
             placeholder="AAPL or VWRA.L"
             maxlength="30"
             required
+            @input="onSymbolInput"
             @blur="resolveSymbol"
           >
         </label>
@@ -38,11 +39,18 @@
           <input
             v-model.trim="form.market"
             class="bs-input"
-            placeholder="NMS, LSE, SES"
+            list="asset-market-options"
+            placeholder="NMS, LSE, SEHK"
             maxlength="10"
+            @input="onMarketInput"
             @blur="resolveSymbol"
           >
         </label>
+        <datalist id="asset-market-options">
+          <option v-for="market in SUPPORTED_MARKETS" :key="market.code" :value="market.code">
+            {{ market.venue }}
+          </option>
+        </datalist>
 
         <p v-if="resolving" class="form-hint form-span-2 muted">
           Checking the ticker…
@@ -70,6 +78,23 @@
             This ticker quotes in {{ resolvedCurrencyMismatch }}, but the holding is set to {{ form.currency }}.
             The quote will be ignored and the manual price used. Change the currency for live pricing.
           </span>
+        </p>
+
+        <p
+          v-if="marketMismatch"
+          class="form-resolution is-warn form-span-2"
+        >
+          <span class="resolution-mark" aria-hidden="true">!</span>
+          <span>
+            This ticker resolved on {{ marketMismatch }}, not {{ form.market }}.
+            <button type="button" class="text-button" @click="useResolvedMarket">
+              Use {{ marketMismatch }}
+            </button>
+          </span>
+        </p>
+
+        <p v-if="marketWarning" class="form-hint form-span-2 muted">
+          {{ marketWarning }}
         </p>
 
         <label class="form-span-2">
@@ -227,7 +252,8 @@
 <script setup lang="ts">
 import { CURRENCIES, type AssetEntry } from '~~/shared/types/balance-sheet'
 import type { InstrumentResolution } from '~~/shared/types/instrument'
-import { normalizeMarketCode } from '~~/shared/utils/markets'
+import { normalizeMarketCode, SUPPORTED_MARKETS } from '~~/shared/utils/markets'
+import { reconcileMarketChoice, unknownMarketWarning, type MarketSource } from '~~/shared/utils/market-selection'
 import { formatCurrency } from '~/utils/formatters'
 
 interface AssetPayload {
@@ -289,6 +315,8 @@ const resolvedKey = ref<string | null>(null)
 const resolving = ref(false)
 const submitError = ref<string | null>(null)
 const currencyChangeAcknowledged = ref(false)
+const marketSource = ref<MarketSource>('auto')
+const marketMismatch = ref<string | null>(null)
 
 const currencyChanged = computed(
   () => props.initial !== null && form.currency !== props.initial.currency,
@@ -328,11 +356,38 @@ const resolutionTone = computed(() => {
 })
 
 const resolutionMark = computed(() => (resolution.value?.status === 'resolved' ? '✓' : '!'))
+const marketWarning = computed(() => unknownMarketWarning(form.market))
 
 function resetResolution() {
   resolution.value = null
   resolvedKey.value = null
   submitError.value = null
+  marketMismatch.value = null
+}
+
+function onSymbolInput() {
+  // An auto-filled exchange belongs to the previous ticker. Clear it so the
+  // next resolution cannot save the new holding under the old venue; a venue
+  // the operator typed is kept and checked for a mismatch instead.
+  if (marketSource.value === 'auto') {
+    form.market = null
+  }
+  resetResolution()
+}
+
+function onMarketInput() {
+  marketSource.value = 'manual'
+  marketMismatch.value = null
+}
+
+function useResolvedMarket() {
+  const resolved = normalizeMarketCode(resolution.value?.quote?.market)
+  if (!resolved) return
+
+  form.market = resolved
+  marketSource.value = 'auto'
+  marketMismatch.value = null
+  resolvedKey.value = currentKey.value
 }
 
 function setKind(kind: AssetEntry['kind']) {
@@ -355,6 +410,7 @@ function resetForm() {
     form.name = props.initial.name
     form.symbol = props.initial.symbol
     form.market = props.initial.market
+    marketSource.value = 'manual'
     form.cpfBucket = props.initial.cpfBucket || 'OA'
     form.currency = props.initial.currency
     form.amount = props.initial.amount
@@ -370,6 +426,7 @@ function resetForm() {
   form.name = ''
   form.symbol = null
   form.market = null
+  marketSource.value = 'auto'
   form.cpfBucket = 'OA'
   form.currency = 'USD'
   form.amount = 0
@@ -395,6 +452,7 @@ async function resolveSymbol() {
   }
 
   form.market = normalizeMarketCode(form.market)
+  marketMismatch.value = null
   const key = currentKey.value
   resolving.value = true
   submitError.value = null
@@ -412,10 +470,14 @@ async function resolveSymbol() {
     resolution.value = result
 
     if (result.status === 'resolved' && result.quote) {
-      const resolvedMarket = normalizeMarketCode(result.quote.market)
-      if (resolvedMarket && !form.market?.trim()) {
-        form.market = resolvedMarket
-      }
+      const choice = reconcileMarketChoice({
+        market: form.market,
+        source: marketSource.value,
+        resolved: result.quote.market,
+      })
+      form.market = choice.market
+      marketSource.value = choice.source
+      marketMismatch.value = choice.mismatch
 
       // A new holding should start in the quote's currency; otherwise the
       // provider quote is discarded and the row silently falls back to the
