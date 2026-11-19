@@ -16,6 +16,16 @@ secret `NAS_DEPLOY_PATH` points at it).
 | `deploy/restic-password` | Restic repository password, 0600 (not in git) |
 | `deploy/offsite.sh` | The off-site job, synced by the deploy |
 
+## Image references
+
+The deploy workflow passes `IMAGE_REPO` and `IMAGE_TAG=sha-<commit>` to
+`deploy.sh`; those values take precedence over `.env`. The compose files fall
+back to `ghcr.io/nickczj/vesto-v2:main` and `ghcr.io/nickczj/vesto-go:main`, so
+the manual commands in this runbook work without exporting the image reference.
+A manual `up -d` therefore uses the `main` tag; CI deployments still pin the
+commit tag. The NAS `.env` may carry the same values for manual commands; CI
+passes the commit tag and overrides them either way.
+
 ## Why not `cp`
 
 SQLite runs in WAL mode. On 2026-11-16 the live `vesto-v2.db` was 4 KB while

@@ -105,6 +105,13 @@
 - Market codes are canonicalised in `shared/utils/markets.ts`; store `SEHK`,
   `LSE`, `AMS`, `SGX`, `NMS`, `NYQ` or `PCX`, not provider aliases such as
   `HKG`, `XLON` or `XAMS`.
+- The Exchange field is optional and offers the canonical venues from
+  `SUPPORTED_MARKETS` as a datalist. A resolved ticker adopts the provider's
+  venue; an auto-filled venue is cleared when the ticker changes, while a
+  manually typed venue is kept and a mismatch is shown with a one-click
+  "Use NMS". An unrecognised code gets a soft warning, not a block. The Go
+  service canonicalises the same aliases, so a new venue needs a row in both
+  lists.
 - The hero FX line names every non-USD/SGD currency the sheet holds, with its
   SGD rate. USD/SGD stays the headline pair and the only headline toggle.
 - The net-worth history card sits beside the net-worth headline. It plots
