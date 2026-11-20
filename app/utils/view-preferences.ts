@@ -20,6 +20,7 @@ export interface ViewPreferences {
   stickyNameColumn: boolean
   showSource: boolean
   showNative: boolean
+  hideValues: boolean
 }
 
 export const DEFAULT_VIEW_PREFERENCES: ViewPreferences = {
@@ -34,6 +35,7 @@ export const DEFAULT_VIEW_PREFERENCES: ViewPreferences = {
   stickyNameColumn: false,
   showSource: false,
   showNative: false,
+  hideValues: false,
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -81,6 +83,7 @@ export function parseViewPreferences(raw: string | null): ViewPreferences {
     stickyNameColumn: parsed.stickyNameColumn === true,
     showSource: parsed.showSource === true,
     showNative: parsed.showNative === true,
+    hideValues: parsed.hideValues === true,
   }
 }
 

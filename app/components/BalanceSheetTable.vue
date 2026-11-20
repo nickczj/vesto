@@ -6,6 +6,7 @@
       'sticky-header': preferences.stickyHeader,
       'sticky-name': preferences.stickyNameColumn,
       'fits-width': fitsWidth,
+      'values-hidden': hideValues,
     }"
   >
     <table ref="tableEl" class="balance-table">
@@ -152,6 +153,7 @@ import {
   sectionReturn,
   shareOf,
 } from '~/utils/ledger'
+import { maskValue } from '~/utils/privacy'
 import { compareWithinSection } from '~/utils/section-sort'
 
 const props = defineProps<{
@@ -190,6 +192,9 @@ function isNumericColumn(id: string): boolean {
 
 const sorting = ref<SortingState>([])
 const { preferences } = useViewPreferences()
+// Cell renderers read this; the shell's `values-hidden` class also keeps the
+// table's render effect subscribed so every cell re-renders on toggle.
+const hideValues = computed(() => preferences.value.hideValues)
 
 // The shell scrolls sideways only when the table is wider than it. While the
 // table fits, the shell is not a scroll container, so the sticky header sticks
@@ -261,45 +266,48 @@ function ledgerCell(text: string) {
 
 function quantityText(row: BalanceSheetRow): string {
   if (row.section !== 'investments') return ''
-  return formatQuantity(row.quantity) ?? NO_VALUE
+  return maskValue(formatQuantity(row.quantity), hideValues.value) || NO_VALUE
 }
 
 function unitCostText(row: BalanceSheetRow): string {
   if (row.section !== 'investments') return ''
-  return formatLedgerValue(row.boughtUnitPrice) ?? NO_VALUE
+  return maskValue(formatLedgerValue(row.boughtUnitPrice), hideValues.value) || NO_VALUE
 }
 
 function unitPriceText(row: BalanceSheetRow): string {
   if (row.section !== 'investments') return ''
-  return formatLedgerValue(row.currentUnitPrice) ?? NO_VALUE
+  return maskValue(formatLedgerValue(row.currentUnitPrice), hideValues.value) || NO_VALUE
 }
 
 function amountText(row: BalanceSheetRow, amount: number): string {
   if (row.source === 'unpriced') return NO_VALUE
-  return formatLedgerAmount(signedAmount(row, amount)) ?? NO_VALUE
+  return maskValue(formatLedgerAmount(signedAmount(row, amount)), hideValues.value) || NO_VALUE
 }
 
 function pnlText(row: BalanceSheetRow): string {
   if (row.section !== 'investments') return ''
   if (row.source === 'unpriced' || row.pnlSgd === null) return NO_VALUE
-  return formatLedgerAmount(row.pnlSgd, { signed: true }) ?? NO_VALUE
+  return maskValue(formatLedgerAmount(row.pnlSgd, { signed: true }), hideValues.value) || NO_VALUE
 }
 
 function returnText(row: BalanceSheetRow): string {
   if (row.section !== 'investments') return ''
-  return formatLedgerPercent(rowReturn(row)) ?? NO_VALUE
+  return maskValue(formatLedgerPercent(rowReturn(row)), hideValues.value) || NO_VALUE
 }
 
 function weightText(row: BalanceSheetRow): string {
   if (row.isLiability) return ''
-  return formatShare(rowWeight(row, props.totals.totalAssets.sgd)) ?? NO_VALUE
+  return maskValue(formatShare(rowWeight(row, props.totals.totalAssets.sgd)), hideValues.value) || NO_VALUE
 }
 
 function formatNativeAmount(row: BalanceSheetRow): string {
   // A row can be unpriced for totals (no FX) while its native value is still
   // known. Show it. A zero native amount means "no price", so show an em dash.
   if (row.source === 'unpriced' && row.nativeAmount === 0) return NO_VALUE
-  return formatSignedCurrency(signedAmount(row, row.nativeAmount), row.nativeCurrency)
+  return maskValue(
+    formatSignedCurrency(signedAmount(row, row.nativeAmount), row.nativeCurrency),
+    hideValues.value,
+  )
 }
 
 function toneFor(value: number | null): string {
@@ -308,10 +316,12 @@ function toneFor(value: number | null): string {
 }
 
 function pnlToneClass(row: BalanceSheetRow): string {
+  if (hideValues.value) return 'pnl-flat'
   return toneFor(row.pnlSgd)
 }
 
 function returnToneClass(row: BalanceSheetRow): string {
+  if (hideValues.value) return 'pnl-flat'
   return toneFor(rowReturn(row))
 }
 
@@ -543,25 +553,31 @@ function subtotalText(section: BalanceSection, columnId: string): string {
 
   switch (columnId) {
     case 'usd':
-      return formatLedgerAmount(sectionSignedValue(section, totals.usd)) ?? ''
+      return maskValue(formatLedgerAmount(sectionSignedValue(section, totals.usd)), hideValues.value)
     case 'sgd':
-      return formatLedgerAmount(sectionSignedValue(section, totals.sgd)) ?? ''
+      return maskValue(formatLedgerAmount(sectionSignedValue(section, totals.sgd)), hideValues.value)
     case 'pnl':
       if (section !== 'investments') return ''
-      return formatLedgerAmount(sectionPnl(sectionRows(section)), { signed: true }) ?? NO_VALUE
+      return maskValue(
+        formatLedgerAmount(sectionPnl(sectionRows(section)), { signed: true }),
+        hideValues.value,
+      ) || NO_VALUE
     case 'return':
       if (section !== 'investments') return ''
-      return formatLedgerPercent(sectionReturn(sectionRows(section))) ?? NO_VALUE
+      return maskValue(formatLedgerPercent(sectionReturn(sectionRows(section))), hideValues.value) || NO_VALUE
     case 'weight':
       if (section === 'liabilities') return ''
-      return formatShare(shareOf(totals.sgd, props.totals.totalAssets.sgd)) ?? NO_VALUE
+      return maskValue(
+        formatShare(shareOf(totals.sgd, props.totals.totalAssets.sgd)),
+        hideValues.value,
+      ) || NO_VALUE
     default:
       return ''
   }
 }
 
 function subtotalToneClass(section: BalanceSection, columnId: string): string {
-  if (section !== 'investments') return ''
+  if (hideValues.value || section !== 'investments') return ''
 
   if (columnId === 'pnl') return toneFor(sectionPnl(sectionRows(section)))
   if (columnId === 'return') return toneFor(sectionReturn(sectionRows(section)))
@@ -573,11 +589,14 @@ function totalAssetsText(columnId: string): string {
     case 'name':
       return 'Total assets'
     case 'usd':
-      return formatLedgerAmount(props.totals.totalAssets.usd) ?? ''
+      return maskValue(formatLedgerAmount(props.totals.totalAssets.usd), hideValues.value)
     case 'sgd':
-      return formatLedgerAmount(props.totals.totalAssets.sgd) ?? ''
+      return maskValue(formatLedgerAmount(props.totals.totalAssets.sgd), hideValues.value)
     case 'weight':
-      return formatShare(shareOf(props.totals.totalAssets.sgd, props.totals.totalAssets.sgd)) ?? NO_VALUE
+      return maskValue(
+        formatShare(shareOf(props.totals.totalAssets.sgd, props.totals.totalAssets.sgd)),
+        hideValues.value,
+      ) || NO_VALUE
     default:
       return ''
   }
@@ -588,9 +607,9 @@ function totalLiabilitiesText(columnId: string): string {
     case 'name':
       return 'Total liabilities'
     case 'usd':
-      return formatLedgerAmount(-props.totals.totalLiabilities.usd) ?? ''
+      return maskValue(formatLedgerAmount(-props.totals.totalLiabilities.usd), hideValues.value)
     case 'sgd':
-      return formatLedgerAmount(-props.totals.totalLiabilities.sgd) ?? ''
+      return maskValue(formatLedgerAmount(-props.totals.totalLiabilities.sgd), hideValues.value)
     default:
       return ''
   }
@@ -601,9 +620,9 @@ function netWorthText(columnId: string): string {
     case 'name':
       return 'Net worth'
     case 'usd':
-      return formatLedgerAmount(props.totals.netWorth.usd) ?? ''
+      return maskValue(formatLedgerAmount(props.totals.netWorth.usd), hideValues.value)
     case 'sgd':
-      return formatLedgerAmount(props.totals.netWorth.sgd) ?? ''
+      return maskValue(formatLedgerAmount(props.totals.netWorth.sgd), hideValues.value)
     default:
       return ''
   }

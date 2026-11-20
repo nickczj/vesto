@@ -55,3 +55,30 @@ test('applies a stored dark preference on a cold load', async ({ page }) => {
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor))
     .toBe('rgb(15, 21, 27)')
 })
+
+test('hides every value and the history chart, and remembers the choice', async ({ page }) => {
+  await page.goto('/')
+
+  const hide = page.getByRole('button', { name: 'Hide values' })
+  await expect(hide).toHaveAttribute('aria-pressed', 'false')
+
+  await hide.click()
+
+  await expect(page.getByRole('button', { name: 'Show values' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.networth-row')).toContainText('••••')
+  await expect(page.locator('.history-card')).toContainText('History is hidden')
+  await expect(page.locator('.history-chart')).toHaveCount(0)
+
+  await page.reload()
+
+  // The choice is per device and survives a reload, including the first paint
+  // from the mirrored view-preferences cookie.
+  await expect(page.getByRole('button', { name: 'Show values' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.networth-row')).toContainText('••••')
+
+  await page.getByRole('button', { name: 'Show values' }).click()
+
+  await expect(page.getByRole('button', { name: 'Hide values' })).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.locator('.networth-row')).not.toContainText('••••')
+  await expect(page.locator('.history-card')).not.toContainText('History is hidden')
+})
