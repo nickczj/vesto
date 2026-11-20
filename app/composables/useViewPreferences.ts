@@ -64,8 +64,17 @@ export function useViewPreferences() {
     preferences.value = { ...preferences.value, showNative }
   }
 
+  function setHideValues(hideValues: boolean) {
+    preferences.value = { ...preferences.value, hideValues }
+  }
+
   function resetPreferences() {
-    preferences.value = defaultViewPreferences()
+    // Resetting layout must not reveal money: privacy is a deliberate toggle,
+    // not a side effect of "Reset".
+    preferences.value = {
+      ...defaultViewPreferences(),
+      hideValues: preferences.value.hideValues,
+    }
   }
 
   return {
@@ -79,6 +88,7 @@ export function useViewPreferences() {
     setStickyNameColumn,
     setShowSource,
     setShowNative,
+    setHideValues,
     resetPreferences,
   }
 }
