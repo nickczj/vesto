@@ -473,7 +473,9 @@ const columns = [
   }),
   columnHelper.display({
     id: 'actions',
-    header: '',
+    // No header string: FlexRender would render an empty text node on the
+    // client while SSR drops it, which is a hydration mismatch. The `<th>`
+    // gets its label from `aria-label`.
     enableSorting: false,
     cell: ({ row }) => h(RowActionsMenu, {
       row: row.original,

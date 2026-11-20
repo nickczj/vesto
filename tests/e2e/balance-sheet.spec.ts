@@ -82,3 +82,24 @@ test('hides every value and the history chart, and remembers the choice', async 
   await expect(page.locator('.networth-row')).not.toContainText('••••')
   await expect(page.locator('.history-card')).not.toContainText('History is hidden')
 })
+
+test('loads without console errors or failed requests when market data is down', async ({ page }) => {
+  const consoleErrors: string[] = []
+  const failedRequests: string[] = []
+
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text())
+  })
+  page.on('response', (response) => {
+    if (response.status() >= 500) failedRequests.push(`${response.status()} ${response.url()}`)
+  })
+
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Net worth' })).toBeVisible()
+  await page.waitForLoadState('networkidle')
+
+  // The e2e server has no vesto-go. The balance sheet and provider chip must
+  // treat that as an outage in their own data, not as a failed page request.
+  expect(failedRequests).toEqual([])
+  expect(consoleErrors).toEqual([])
+})

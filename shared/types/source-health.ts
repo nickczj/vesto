@@ -49,8 +49,26 @@ export interface SourceHealthSnapshot {
   window: string
   markets: string[]
   sources: SourceHealth[]
-  /** True when vesto-go could not be reached and this is the last good read. */
+  /**
+   * True when vesto-go could not be reached. `sources` is then either the last
+   * good read or empty when there has never been one.
+   */
   isStale: boolean
+}
+
+/**
+ * A provider status read that never reached vesto-go. Status is diagnostic, not
+ * the page's data, so an outage is an empty stale snapshot rather than a
+ * request failure the browser would report as a console error.
+ */
+export function unavailableSourceSnapshot(markets: string[]): SourceHealthSnapshot {
+  return {
+    asOf: '',
+    window: '24h0m0s',
+    markets,
+    sources: [],
+    isStale: true,
+  }
 }
 
 export type OverallSourceState = SourceState | 'unavailable'

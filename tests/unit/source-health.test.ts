@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { overallSourceState, type SourceHealth } from '~~/shared/types/source-health'
+import { overallSourceState, unavailableSourceSnapshot, type SourceHealth } from '~~/shared/types/source-health'
 import { fetchSourceHealth } from '~~/server/utils/vesto-go'
 
 function makeSource(overrides: Partial<SourceHealth>): SourceHealth {
@@ -75,6 +75,21 @@ describe('overall source state', () => {
       makeSource({ name: 'a', state: 'unconfigured' }),
       makeSource({ name: 'b', state: 'disabled' }),
     ])).toBe('unconfigured')
+  })
+})
+
+describe('unavailable source snapshot', () => {
+  it('is an empty stale read, not a request failure', () => {
+    const snapshot = unavailableSourceSnapshot(['LSE', 'NMS'])
+
+    expect(snapshot).toMatchObject({
+      asOf: '',
+      window: '24h0m0s',
+      markets: ['LSE', 'NMS'],
+      sources: [],
+      isStale: true,
+    })
+    expect(overallSourceState(snapshot.sources)).toBe('unavailable')
   })
 })
 

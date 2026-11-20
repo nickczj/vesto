@@ -1,7 +1,6 @@
-import type { SourceHealthSnapshot } from '~~/shared/types/source-health'
+import { unavailableSourceSnapshot, type SourceHealthSnapshot } from '~~/shared/types/source-health'
 import { listAssets } from '~~/server/services/repository'
 import { fetchSourceHealth } from '~~/server/utils/vesto-go'
-import { classifyRequestFailure, describeRequestFailure } from '~~/shared/utils/request-failure'
 
 const CACHE_TTL_MS = 60_000
 
@@ -51,19 +50,16 @@ export default defineEventHandler(async (event) => {
     return snapshot
   }
   catch (error) {
-    // A status chip is not worth a 500. If a previous read exists, label it
-    // stale rather than showing nothing.
+    // A status chip is not worth a 5xx. If a previous read exists, label it
+    // stale; otherwise return an empty stale snapshot. The chip already knows
+    // the market-data service is unreachable from the balance-sheet call, and
+    // a failed request would only add console noise.
     if (cache && cache.key === key) {
       return { ...cache.snapshot, isStale: true }
     }
 
     // The raw error names an internal address; keep it in the log only.
     console.warn('[vesto] source status fetch failed:', error instanceof Error ? error.message : String(error))
-    const reason = describeRequestFailure(classifyRequestFailure(error), 'the market-data service')
-    throw createError({
-      statusCode: 502,
-      statusMessage: 'Source status unavailable',
-      message: `Provider status is unavailable: ${reason}.`,
-    })
+    return unavailableSourceSnapshot(markets)
   }
 })

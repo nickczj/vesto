@@ -16,8 +16,8 @@
       <header class="source-panel-header">
         <div>
           <h2>Provider health</h2>
-          <p class="muted">
-            Last {{ windowLabel }}<template v-if="snapshot"> · read {{ formatTimestamp(snapshot.asOf) }}</template>
+          <p v-if="snapshot && snapshot.sources.length > 0" class="muted">
+            Last {{ windowLabel }}<template v-if="snapshot.asOf"> · read {{ formatTimestamp(snapshot.asOf) }}</template>
           </p>
         </div>
         <UButton size="xs" color="neutral" variant="soft" :loading="isLoading" @click="onRefresh">
@@ -29,7 +29,12 @@
         {{ errorMessage }}
       </p>
       <p v-else-if="isUnreachable" class="source-panel-note warning">
-        The market-data service is not responding. This is the last successful read; prices on the page are the last ones fetched.
+        <template v-if="snapshot && snapshot.sources.length > 0">
+          The market-data service is not responding. This is the last successful read; prices on the page are the last ones fetched.
+        </template>
+        <template v-else>
+          The market-data service is not responding. No provider status has been read yet; prices on the page are the last ones fetched.
+        </template>
       </p>
 
       <ul v-if="snapshot && snapshot.sources.length > 0" class="source-list">

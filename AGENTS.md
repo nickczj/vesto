@@ -62,6 +62,8 @@
 - `GET /api/sources?refresh=stale|always` — BFF proxy for vesto-go `/v1/sources`.
   It passes the markets the portfolio holds so out-of-scope providers report
   `not_applicable` rather than looking dead. The browser never calls vesto-go.
+  When vesto-go is unreachable it answers 200 with an empty stale snapshot
+  (`isStale: true`, no sources); a diagnostic chip is not worth a 5xx.
 - `GET /api/instruments/resolve?symbol=&market=` — BFF proxy for vesto-go
   `/v1/quotes/latest`, used by the add/edit dialog to resolve a ticker before
   saving. It returns a status and a plain sentence; a provider outage does not
@@ -87,7 +89,8 @@
 - The header has one market-data chip. It reports how the page's last call to
   vesto-go went and when prices last arrived; its panel reports provider
   health. Row valuation state stays in the table. The chip is diagnostic, not
-  a dashboard.
+  a dashboard. When no provider status has ever been read, the panel says so
+  and reuses the balance sheet's outage state instead of failing a request.
 - The Source column shows `provider · valuation-state` when a quote supplied
   the price (`yahoo_scrape · live`), and just the state otherwise.
 - Currency is chosen from the supported list in the add/edit dialogs. Changing
