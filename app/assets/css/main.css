@@ -300,6 +300,27 @@ body {
   line-height: 1.4;
 }
 
+.history-placeholder {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-height: 160px;
+  padding: 16px;
+  border: 1px dashed var(--rule);
+}
+
+.history-placeholder p {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.history-placeholder .history-placeholder-title {
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 .table-shell {
   position: relative;
   background: transparent;

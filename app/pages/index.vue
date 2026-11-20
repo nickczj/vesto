@@ -15,6 +15,17 @@
         <UButton size="xs" color="neutral" variant="ghost" class="header-control" :loading="isLoading" @click="onRefresh">
           Refresh
         </UButton>
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          class="header-control"
+          :aria-pressed="preferences.hideValues"
+          :title="preferences.hideValues ? 'Show all values' : 'Hide all values'"
+          @click="onToggleHideValues"
+        >
+          {{ preferences.hideValues ? 'Show values' : 'Hide values' }}
+        </UButton>
         <ViewSettingsPopover />
         <UButton size="xs" color="neutral" variant="ghost" class="header-control" :loading="isExporting" title="Export to Excel" @click="onExportExcel">
           Export
@@ -56,13 +67,13 @@
         <p
           v-if="hasCpf"
           class="hero-ex-cpf"
-          :title="`Net worth less the CPF subtotal (${cpfText}).`"
+          :title="hideValues ? 'Net worth less the CPF subtotal.' : `Net worth less the CPF subtotal (${cpfText}).`"
         >
           Excluding CPF <strong>{{ exCpfText }}</strong>
         </p>
         <p class="hero-fx" :class="{ warning: fxUnavailable }">{{ fxLine }}</p>
 
-        <div v-if="snapshotDelta || drawdownDelta" class="hero-deltas">
+        <div v-if="!hideValues && (snapshotDelta || drawdownDelta)" class="hero-deltas">
           <p v-if="snapshotDelta" class="hero-delta" :class="snapshotDelta.tone">{{ snapshotDelta.text }}</p>
           <p v-if="drawdownDelta" class="hero-delta" :class="drawdownDelta.tone">{{ drawdownDelta.text }}</p>
         </div>
@@ -72,6 +83,7 @@
         :history="history"
         :loading="historyLoading"
         :error="historyError"
+        :values-hidden="hideValues"
       />
     </section>
 
@@ -125,6 +137,7 @@ import { exportBalanceSheetToExcel } from '~/utils/excel-export'
 import { currencySymbol, formatCurrency, formatShortDate } from '~/utils/formatters'
 import { peakHistoryPoint, sgtDateKey } from '~/utils/history-range'
 import { formatLedgerAmount, formatLedgerPercent, formatLedgerValue } from '~/utils/ledger'
+import { maskValue } from '~/utils/privacy'
 import type { PrimaryCurrency } from '~/utils/view-preferences'
 
 const {
@@ -154,6 +167,7 @@ const {
   visibleSections,
   hiddenSectionLabels,
   setPrimaryCurrency,
+  setHideValues,
 } = useViewPreferences()
 const { toggleTheme } = useThemeMode()
 
@@ -161,6 +175,7 @@ const currencyOptions: PrimaryCurrency[] = ['SGD', 'USD']
 
 const tableRows = computed(() => allRows.value.filter(row => visibleSections.value.includes(row.section)))
 const fxUnavailable = computed(() => sheet.value.fx === null)
+const hideValues = computed(() => preferences.value.hideValues)
 
 function amountFor(pair: { usd: number, sgd: number }, currency: PrimaryCurrency): number {
   return currency === 'USD' ? pair.usd : pair.sgd
@@ -168,12 +183,12 @@ function amountFor(pair: { usd: number, sgd: number }, currency: PrimaryCurrency
 
 function displayMoney(value: number, currency: PrimaryCurrency): string {
   if (fxUnavailable.value) return '—'
-  return formatCurrency(value, currency)
+  return maskValue(formatCurrency(value, currency), hideValues.value)
 }
 
 function displayLedgerValue(value: number): string {
   if (fxUnavailable.value) return '—'
-  return formatLedgerValue(value) ?? '—'
+  return maskValue(formatLedgerValue(value) ?? '—', hideValues.value)
 }
 
 const headline = computed(
@@ -187,9 +202,12 @@ const hasCpf = computed(() => sheet.value.totals.sections.cpf.sgd > 0 || sheet.v
 const cpfText = computed(() => {
   if (fxUnavailable.value) return '—'
 
-  return formatCurrency(
-    amountFor(sheet.value.totals.sections.cpf, preferences.value.primaryCurrency),
-    preferences.value.primaryCurrency,
+  return maskValue(
+    formatCurrency(
+      amountFor(sheet.value.totals.sections.cpf, preferences.value.primaryCurrency),
+      preferences.value.primaryCurrency,
+    ),
+    hideValues.value,
   )
 })
 const exCpfText = computed(() => {
@@ -239,18 +257,22 @@ const fxLine = computed(() => {
   if (!fx) return 'USD/SGD rate unavailable. Totals are hidden until a rate can be fetched.'
 
   const secondaryNetWorth = amountFor(sheet.value.totals.netWorth, secondaryCurrency.value)
+  const secondaryText = maskValue(
+    formatCurrency(secondaryNetWorth, secondaryCurrency.value),
+    hideValues.value,
+  )
   const rate = fx.usdToSgd.toFixed(4)
   const stale = fx.isStale ? ' (last known)' : ''
   const extra = extraFxRates.value ? `; ${extraFxRates.value}` : ''
 
-  return `${formatCurrency(secondaryNetWorth, secondaryCurrency.value)} at ${rate} SGD per USD${extra}, rates from ${formatShortDate(fx.asOf)}${stale}.`
+  return `${secondaryText} at ${rate} SGD per USD${extra}, rates from ${formatShortDate(fx.asOf)}${stale}.`
 })
 
 // Current net worth minus the latest complete snapshot. The date is named
 // whenever that snapshot is not today's, so an old baseline is not passed off
 // as the 08:00 one.
 const snapshotDelta = computed(() => {
-  if (fxUnavailable.value) return null
+  if (hideValues.value || fxUnavailable.value) return null
 
   const latest = history.value?.latest
   if (!latest) return null
@@ -273,7 +295,7 @@ const peakPoint = computed(() => {
 })
 
 const drawdownDelta = computed(() => {
-  if (fxUnavailable.value) return null
+  if (hideValues.value || fxUnavailable.value) return null
 
   const peak = peakPoint.value
   if (!peak) return null
@@ -457,6 +479,10 @@ async function onRefresh() {
 
 function onToggleTheme() {
   toggleTheme()
+}
+
+function onToggleHideValues() {
+  setHideValues(!preferences.value.hideValues)
 }
 
 async function onExportExcel() {

@@ -17,6 +17,7 @@ describe('view preferences', () => {
       stickyNameColumn: false,
       showSource: false,
       showNative: false,
+      hideValues: false,
     })
     expect(parsed).not.toBe(DEFAULT_VIEW_PREFERENCES)
     expect(parsed.sections).not.toBe(DEFAULT_VIEW_PREFERENCES.sections)
@@ -37,6 +38,7 @@ describe('view preferences', () => {
       stickyNameColumn: true,
       showSource: true,
       showNative: false,
+      hideValues: true,
     }))
 
     expect(parsed).toEqual({
@@ -47,6 +49,7 @@ describe('view preferences', () => {
       stickyNameColumn: true,
       showSource: true,
       showNative: false,
+      hideValues: true,
     })
 
     const invalid = parseViewPreferences(JSON.stringify({
@@ -57,6 +60,7 @@ describe('view preferences', () => {
       stickyHeader: 'no',
       stickyNameColumn: 1,
       showSource: 1,
+      hideValues: 'yes',
     }))
 
     expect(invalid.density).toBe('comfortable')
@@ -65,6 +69,7 @@ describe('view preferences', () => {
     expect(invalid.stickyHeader).toBe(true)
     expect(invalid.stickyNameColumn).toBe(false)
     expect(invalid.showSource).toBe(false)
+    expect(invalid.hideValues).toBe(false)
   })
 
   it('ignores the KPI card setting stored by an older build', () => {
@@ -81,6 +86,7 @@ describe('view preferences', () => {
     const preferences = defaultViewPreferences()
     preferences.density = 'compact'
     preferences.sections.liabilities = false
+    preferences.hideValues = true
     expect(parseViewPreferences(serializeViewPreferences(preferences))).toEqual(preferences)
   })
 })

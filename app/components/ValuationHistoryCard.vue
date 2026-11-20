@@ -11,7 +11,7 @@
         </p>
       </div>
 
-      <div class="history-controls">
+      <div v-if="!valuesHidden" class="history-controls">
         <div class="segmented history-series" role="group" aria-label="History series">
           <button
             v-for="option in HISTORY_SERIES"
@@ -42,88 +42,99 @@
       </div>
     </header>
 
-    <p v-if="error" class="history-note warning">
-      History refresh failed: {{ error }}
-    </p>
+    <template v-if="valuesHidden">
+      <div class="history-placeholder" role="note">
+        <p class="history-placeholder-title">History is hidden</p>
+        <p class="muted">
+          Snapshots are still captured daily at 08:00 SGT. Use Show values in the header to see the chart and drawdown.
+        </p>
+      </div>
+    </template>
 
-    <div v-if="chart" class="history-chart-wrap">
-      <svg
-        class="history-chart"
-        :width="chart.width"
-        :height="chart.height"
-        :viewBox="`0 0 ${chart.width} ${chart.height}`"
-        role="img"
-        :aria-label="chartSummary"
-      >
-        <g class="history-grid">
-          <line
-            v-for="line in chart.grid"
-            :key="line.y"
-            :x1="PADDING.left"
-            :x2="chart.width - PADDING.right"
-            :y1="line.y"
-            :y2="line.y"
-          />
-        </g>
+    <template v-else>
+      <p v-if="error" class="history-note warning">
+        History refresh failed: {{ error }}
+      </p>
 
-        <path class="history-area" :d="chart.area" />
-        <path class="history-line" :d="chart.line" />
-        <circle class="history-dot" :cx="chart.last.x" :cy="chart.last.y" r="3.5" />
-
-        <text
-          v-for="line in chart.grid"
-          :key="`label-${line.y}`"
-          class="history-axis-label"
-          :x="PADDING.left - 8"
-          :y="line.y + 4"
-          text-anchor="end"
+      <div v-if="chart" class="history-chart-wrap">
+        <svg
+          class="history-chart"
+          :width="chart.width"
+          :height="chart.height"
+          :viewBox="`0 0 ${chart.width} ${chart.height}`"
+          role="img"
+          :aria-label="chartSummary"
         >
-          {{ formatCurrency(line.value, 'SGD', true) }}
-        </text>
-        <text class="history-axis-label" :x="PADDING.left" :y="chart.height - 6">
-          {{ formatShortDate(chart.first.point.asOfDate) }}
-        </text>
-        <text class="history-axis-label" :x="chart.width - PADDING.right" :y="chart.height - 6" text-anchor="end">
-          {{ formatShortDate(chart.last.point.asOfDate) }}
-        </text>
-      </svg>
-    </div>
+          <g class="history-grid">
+            <line
+              v-for="line in chart.grid"
+              :key="line.y"
+              :x1="PADDING.left"
+              :x2="chart.width - PADDING.right"
+              :y1="line.y"
+              :y2="line.y"
+            />
+          </g>
 
-    <p v-else-if="history && series === 'exCpf' && exCpfPoints.length < 2" class="history-note muted">
-      {{ exCpfStartNote }}
-    </p>
+          <path class="history-area" :d="chart.area" />
+          <path class="history-line" :d="chart.line" />
+          <circle class="history-dot" :cx="chart.last.x" :cy="chart.last.y" r="3.5" />
 
-    <p v-else-if="history && completePoints.length >= 2" class="history-note muted">
-      Not enough history in this range. Choose a wider range.
-    </p>
+          <text
+            v-for="line in chart.grid"
+            :key="`label-${line.y}`"
+            class="history-axis-label"
+            :x="PADDING.left - 8"
+            :y="line.y + 4"
+            text-anchor="end"
+          >
+            {{ formatCurrency(line.value, 'SGD', true) }}
+          </text>
+          <text class="history-axis-label" :x="PADDING.left" :y="chart.height - 6">
+            {{ formatShortDate(chart.first.point.asOfDate) }}
+          </text>
+          <text class="history-axis-label" :x="chart.width - PADDING.right" :y="chart.height - 6" text-anchor="end">
+            {{ formatShortDate(chart.last.point.asOfDate) }}
+          </text>
+        </svg>
+      </div>
 
-    <p v-else-if="history" class="history-note muted">
-      <template v-if="history.incompleteDays > 0">
-        {{ history.incompleteDays }} incomplete day<template v-if="history.incompleteDays > 1">s are</template><template v-else> is</template>
-        excluded. A complete day is needed before a trend can start.
-      </template>
-      <template v-else>
-        A trend needs at least two complete days. The first snapshot is recorded; check back tomorrow.
-      </template>
-    </p>
+      <p v-else-if="history && series === 'exCpf' && exCpfPoints.length < 2" class="history-note muted">
+        {{ exCpfStartNote }}
+      </p>
 
-    <p v-else-if="!error" class="history-note muted">
-      {{ loading ? 'Loading history…' : 'History is unavailable.' }}
-    </p>
+      <p v-else-if="history && completePoints.length >= 2" class="history-note muted">
+        Not enough history in this range. Choose a wider range.
+      </p>
 
-    <p v-if="history" class="history-note muted">
-      <template v-if="peakText">
-        {{ peakText }}
-      </template>
-      <template v-if="series === 'exCpf' && exCpfFirstDate">
-        Ex-CPF series starts {{ formatHistoryDate(exCpfFirstDate) }}.
-      </template>
-      History starts {{ history.firstCompleteDate ? formatHistoryDate(history.firstCompleteDate) : 'with the first snapshot' }} and cannot be backfilled.
-    </p>
+      <p v-else-if="history" class="history-note muted">
+        <template v-if="history.incompleteDays > 0">
+          {{ history.incompleteDays }} incomplete day<template v-if="history.incompleteDays > 1">s are</template><template v-else> is</template>
+          excluded. A complete day is needed before a trend can start.
+        </template>
+        <template v-else>
+          A trend needs at least two complete days. The first snapshot is recorded; check back tomorrow.
+        </template>
+      </p>
 
-    <p v-if="history && history.incompleteDays > 0" class="history-note muted">
-      Incomplete days are stored but excluded from the chart and drawdown: at least one row had no trustworthy price.
-    </p>
+      <p v-else-if="!error" class="history-note muted">
+        {{ loading ? 'Loading history…' : 'History is unavailable.' }}
+      </p>
+
+      <p v-if="history" class="history-note muted">
+        <template v-if="peakText">
+          {{ peakText }}
+        </template>
+        <template v-if="series === 'exCpf' && exCpfFirstDate">
+          Ex-CPF series starts {{ formatHistoryDate(exCpfFirstDate) }}.
+        </template>
+        History starts {{ history.firstCompleteDate ? formatHistoryDate(history.firstCompleteDate) : 'with the first snapshot' }} and cannot be backfilled.
+      </p>
+
+      <p v-if="history && history.incompleteDays > 0" class="history-note muted">
+        Incomplete days are stored but excluded from the chart and drawdown: at least one row had no trustworthy price.
+      </p>
+    </template>
   </section>
 </template>
 
@@ -143,6 +154,7 @@ const props = defineProps<{
   history: ValuationHistoryResponse | null
   loading: boolean
   error: string | null
+  valuesHidden: boolean
 }>()
 
 const HISTORY_SERIES: Array<{ value: HistorySeries, label: string }> = [
@@ -166,7 +178,7 @@ const exCpfStartNote = computed(() => exCpfPoints.value.length === 0
 const peak = computed(() => peakHistoryPoint(completePoints.value, 'SGD', series.value))
 
 const peakText = computed(() => {
-  if (!peak.value) return null
+  if (props.valuesHidden || !peak.value) return null
 
   const value = series.value === 'exCpf' ? peak.value.netWorthExCpfSgd : peak.value.netWorthSgd
   if (value === null) return null
@@ -194,7 +206,9 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
 })
 
-const chart = computed(() => buildHistoryChart(displayPoints.value, chartWidth.value, series.value))
+const chart = computed(() => props.valuesHidden
+  ? null
+  : buildHistoryChart(displayPoints.value, chartWidth.value, series.value))
 
 const chartSummary = computed(() => {
   if (!chart.value) return ''

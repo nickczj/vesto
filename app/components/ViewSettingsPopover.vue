@@ -60,6 +60,21 @@
       </div>
 
       <div class="view-group">
+        <span class="view-group-label">Privacy</span>
+        <label class="view-toggle">
+          <input
+            type="checkbox"
+            :checked="preferences.hideValues"
+            @change="onHideValuesChange"
+          >
+          <span>Hide all values</span>
+        </label>
+        <p class="view-hint muted">
+          Amounts, prices and the history chart are hidden. Holding names, currencies and valuation states stay visible. Reset keeps this setting.
+        </p>
+      </div>
+
+      <div class="view-group">
         <span class="view-group-label">Sections</span>
         <label class="view-toggle">
           <input
@@ -154,6 +169,7 @@ const {
   setStickyNameColumn,
   setShowSource,
   setShowNative,
+  setHideValues,
   resetPreferences,
 } = useViewPreferences()
 
@@ -191,6 +207,10 @@ function onShowSourceChange(event: Event) {
 
 function onShowNativeChange(event: Event) {
   setShowNative(checked(event))
+}
+
+function onHideValuesChange(event: Event) {
+  setHideValues(checked(event))
 }
 
 function onDocumentClick(event: MouseEvent) {
