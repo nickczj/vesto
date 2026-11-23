@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.0",
-    "@types/better-sqlite3": "^7.6.13",
+    "@types/better-sqlite3": "^9.6.0",
     "@vitest/coverage-v8": "^5.1.0",
     "@vue/language-core": "^3.2.6",
     "drizzle-kit": "^0.31.11",
