@@ -21,7 +21,7 @@
     "audit:prod": "node scripts/audit-gate.mjs"
   },
   "dependencies": {
-    "@nuxt/ui": "^4.6.0",
+    "@nuxt/ui": "^4.13.0",
     "@tanstack/vue-table": "^8.21.3",
     "better-sqlite3": "^13.2.0",
     "drizzle-orm": "^0.45.2",
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@playwright/test": "^1.59.0",
     "@types/better-sqlite3": "^7.6.13",
-    "@vitest/coverage-v8": "^5.1.0",
+    "@vitest/coverage-v8": "^5.1.1",
     "@vue/language-core": "^3.2.6",
     "drizzle-kit": "^0.31.11",
     "vitest": "^5.1.0",
