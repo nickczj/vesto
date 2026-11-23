@@ -71,7 +71,7 @@ services:
   # /backups: never the live database. Home Assistant watches it through the
   # webhook in deploy/offsite.sh; see deploy/RUNBOOK.md.
   offsite:
-    image: restic/restic:0.19.1
+    image: restic/restic:0.20.0
     restart: unless-stopped
     env_file:
       - ../.env.offsite
